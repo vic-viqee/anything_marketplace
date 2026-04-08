@@ -1,0 +1,25 @@
+# Fallow config - ignore false positives for Next.js App Router
+
+[fallow]
+ignore = [
+  # Next.js App Router pages are valid entry points - these are NOT dead files
+  "frontend/src/app/admin/page.tsx",
+  "frontend/src/app/globals.css",
+  "frontend/src/app/layout.tsx",
+  "frontend/src/app/login/page.tsx",
+  "frontend/src/app/messages/page.tsx",
+  "frontend/src/app/my-products/page.tsx",
+  "frontend/src/app/notifications/page.tsx",
+  "frontend/src/app/page.tsx",
+  "frontend/src/app/post/page.tsx",
+  "frontend/src/app/product/[id]/page.tsx",
+  "frontend/src/app/profile/page.tsx",
+  "frontend/src/app/register/page.tsx",
+]
+
+# Clone groups are acceptable for similar forms (small duplication)
+[duplicates]
+ignore = [
+  "frontend/src/app/login/page.tsx",
+  "frontend/src/app/register/page.tsx",
+]
