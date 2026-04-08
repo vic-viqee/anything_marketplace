@@ -4,8 +4,8 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/context/auth-store';
 import { adminApi } from '@/lib/api';
-import { User, Product, Analytics } from '@/types';
-import { Users, Package, Check, X, Trash2, AlertCircle, Ticket, Star, MessageCircle } from 'lucide-react';
+import { User, Product, Analytics, Rating, Ticket } from '@/types';
+import { Users, Package, Check, X, Trash2, AlertCircle, Ticket as TicketIcon, Star } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,8 +16,8 @@ function AdminContent() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [pendingProducts, setPendingProducts] = useState<Product[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [ratings, setRatings] = useState<any[]>([]);
-  const [tickets, setTickets] = useState<any[]>([]);
+  const [ratings, setRatings] = useState<Rating[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'users' | 'tickets' | 'reviews'>('analytics');
 
@@ -137,7 +137,7 @@ function AdminContent() {
     { id: 'analytics', label: 'Analytics', icon: AlertCircle },
     { id: 'products', label: 'Products', icon: Package },
     { id: 'users', label: 'Users', icon: Users },
-    { id: 'tickets', label: 'Tickets', icon: Ticket, count: tickets.filter(t => t.status === 'open').length },
+    { id: 'tickets', label: 'Tickets', icon: TicketIcon, count: tickets.filter(t => t.status === 'open').length },
     { id: 'reviews', label: 'Reviews', icon: Star },
   ];
 

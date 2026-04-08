@@ -106,3 +106,14 @@ export interface Notification {
   related_id: number | null;
   created_at: string;
 }
+
+export interface Ticket {
+  id: number;
+  user_id: number;
+  ticket_type: string;
+  description: string;
+  status: string;
+  priority: string;
+  created_at: string;
+  updated_at: string | null;
+}
