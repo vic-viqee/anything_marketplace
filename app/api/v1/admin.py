@@ -83,6 +83,9 @@ def get_analytics(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
+    from sqlalchemy import func
+    from app.models.models import Category
+
     total_users = db.query(User).count()
     total_products = db.query(Product).count()
 
@@ -115,6 +118,24 @@ def get_analytics(
         .count()
     )
 
+    products_by_category = (
+        db.query(Category.name, func.count(Product.id))
+        .join(Product, Product.category_id == Category.id, isouter=True)
+        .group_by(Category.name)
+        .all()
+    )
+
+    products_by_category_data = [
+        {"name": cat[0] or "Uncategorized", "count": cat[1]}
+        for cat in products_by_category
+    ]
+
+    users_by_role = db.query(User.role, func.count(User.id)).group_by(User.role).all()
+    users_over_time_data = [
+        {"name": role[0].value if role[0] else "unknown", "count": role[1]}
+        for role in users_by_role
+    ]
+
     return {
         "total_users": total_users,
         "total_products": total_products,
@@ -124,6 +145,8 @@ def get_analytics(
         "customers": customers,
         "sellers": sellers,
         "activity_today": activity_today,
+        "products_by_category": products_by_category_data,
+        "users_over_time": users_over_time_data,
     }
 
 
@@ -210,6 +233,35 @@ def get_pending_products(
             (Product.title.ilike(f"%{search_term}%"))
             | (Product.description.ilike(f"%{search_term}%"))
         )
+
+    products = query.order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
+    return products
+
+
+@router.get("/products", response_model=List[ProductResponse])
+def get_all_products(
+    skip: int = 0,
+    limit: int = 50,
+    search: str = None,
+    status: str = None,
+    is_approved: bool = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    query = db.query(Product)
+
+    if search:
+        search_term = search.strip()
+        query = query.filter(
+            (Product.title.ilike(f"%{search_term}%"))
+            | (Product.description.ilike(f"%{search_term}%"))
+        )
+
+    if status:
+        query = query.filter(Product.status == ProductStatus(status))
+
+    if is_approved is not None:
+        query = query.filter(Product.is_approved == is_approved)
 
     products = query.order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
     return products
@@ -581,3 +633,35 @@ def send_notification(
     log_activity(db, admin.id, "notify", "user", data.user_id, f"Sent: {data.title}")
 
     return {"message": "Notification sent"}
+
+
+class BroadcastNotificationRequest(BaseModel):
+    title: str
+    message: str
+
+
+@router.post("/notify/broadcast")
+def broadcast_notification(
+    data: BroadcastNotificationRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    users = db.query(User).all()
+    count = 0
+    for user in users:
+        create_notification(
+            db=db,
+            user_id=user.id,
+            notification_type=NotificationType.PRODUCT_APPROVED,
+            title=data.title,
+            message=data.message,
+        )
+        count += 1
+
+    db.commit()
+
+    log_activity(
+        db, admin.id, "broadcast", "user", 0, f"Sent to {count} users: {data.title}"
+    )
+
+    return {"message": f"Notification sent to {count} users"}

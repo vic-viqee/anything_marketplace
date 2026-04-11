@@ -200,6 +200,8 @@ class AnalyticsResponse(BaseModel):
     customers: int
     sellers: int
     activity_today: Optional[int] = 0
+    products_by_category: Optional[list] = []
+    users_over_time: Optional[list] = []
 
 
 class TicketResponse(BaseModel):

@@ -95,6 +95,9 @@ export interface Analytics {
   sold_products: number;
   customers: number;
   sellers: number;
+  activity_today?: number;
+  products_by_category?: { name: string; count: number }[];
+  users_over_time?: { name: string; count: number }[];
 }
 
 export interface Notification {

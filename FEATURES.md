@@ -7,8 +7,9 @@ This document contains the complete features overview for the Anything Marketpla
 ## Deployment
 
 ### Live URLs
-- **Backend API**: `https://anything-marketplace-api.onrender.com`
-- **Frontend**: `https://anything-marketplace-web.onrender.com`
+- **Backend API**: https://anything-marketplace-api.onrender.com
+- **Frontend**: https://anything-marketplace-web.onrender.com
+- **Health Check**: https://anything-marketplace-api.onrender.com/health
 
 ### Infrastructure
 - **Database**: Neon PostgreSQL (free tier)

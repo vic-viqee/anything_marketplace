@@ -102,6 +102,9 @@ export const adminApi = {
   getPendingProducts: (params?: { skip?: number; limit?: number; search?: string }) =>
     api.get('/api/v1/admin/products/pending', { params }),
   
+  getAllProducts: (params?: { skip?: number; limit?: number; search?: string; status?: string; is_approved?: boolean }) =>
+    api.get('/api/v1/admin/products', { params }),
+  
   approveProduct: (productId: number) => api.post(`/api/v1/admin/products/${productId}/approve`),
   
   rejectProduct: (productId: number) => api.post(`/api/v1/admin/products/${productId}/reject`),
@@ -134,6 +137,9 @@ export const adminApi = {
 
   getConversationMessages: (conversationId: number) => 
     api.get(`/api/v1/admin/conversations/${conversationId}/messages`),
+
+  broadcastNotification: (data: { title: string; message: string }) =>
+    api.post('/api/v1/admin/notify/broadcast', data),
 };
 
 export const notificationsApi = {
