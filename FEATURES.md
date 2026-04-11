@@ -28,10 +28,10 @@ This document contains the complete features overview for the Anything Marketpla
 ### Core Features
 - Product feed with category filters (paginated, Redis-cached)
 - Product search (title/description)
-- Post ads with images (auto-compressed to 1200px max)
+- Post ads with images (auto-compressed to 1200px, stored on **Cloudinary CDN**)
 - Product approval system (admin moderates before live)
 - P2P chat messaging (WebSocket-enabled, real-time)
-- In-app notifications for product approval/rejection
+- In-app notifications for product approval/rejection **and new messages**
 - Mark items as sold
 - User ratings (1-5 stars)
 - User profiles with photo, username, password management
@@ -45,12 +45,14 @@ This document contains the complete features overview for the Anything Marketpla
 - Input validation (Pydantic)
 
 ### Admin Features
-- Analytics dashboard
+- Analytics dashboard (pie + bar charts)
 - Product moderation (approve/reject/bulk)
-- User management (roles, deactivate, delete)
+- User management (roles, deactivate, delete, **search**)
 - Support ticket system
 - Activity logs
+- Category management (create new categories)
 - CSV export
+- Broadcast to all users
 - Direct notification to users
 
 ---
@@ -128,6 +130,16 @@ This document contains the complete features overview for the Anything Marketpla
 
 ---
 
+---
+
+## Recent Updates
+
+### Bug Fixes (2026-04-11)
+- Fixed images not displaying on Cloudinary (now handles full CDN URLs)
+- Fixed missing notifications for new messages (now creates DB notification)
+
+---
+
 ## Planned Features
 
 ### High Priority
@@ -169,4 +181,4 @@ This document contains the complete features overview for the Anything Marketpla
 
 ---
 
-_Last updated: 2026-04-11_
+_Last updated: 2026-04-11 (includes all admin tabs, Cloudinary images, message notifications)_
