@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/context/auth-store';
 import { adminApi } from '@/lib/api';
 import { User, Product, Analytics, Rating, Ticket } from '@/types';
-import { Users, Package, Check, X, Trash2, AlertCircle, Ticket as TicketIcon, Star } from 'lucide-react';
+import { Users, Package, Check, X, Trash2, AlertCircle, Ticket as TicketIcon, Star, Bell } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,9 +20,11 @@ function AdminContent() {
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'users' | 'tickets' | 'reviews'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'users' | 'tickets' | 'reviews' | 'broadcast'>('analytics');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated || !isAdmin) {
@@ -73,6 +76,24 @@ function AdminContent() {
     if (activeTab === 'reviews') loadRatings();
     if (activeTab === 'tickets') loadTickets();
   }, [activeTab]);
+
+  const handleBroadcast = async () => {
+    if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
+      setError('Title and message required');
+      return;
+    }
+    setActionLoading(-1);
+    try {
+      await adminApi.broadcastNotification({ title: broadcastTitle, message: broadcastMessage });
+      setBroadcastTitle('');
+      setBroadcastMessage('');
+      alert('Broadcast sent!');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to send');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const handleApprove = async (productId: number) => {
     setActionLoading(productId);
@@ -189,6 +210,7 @@ function AdminContent() {
     { id: 'users', label: 'Users', icon: Users },
     { id: 'tickets', label: 'Tickets', icon: TicketIcon, count: tickets.filter(t => t.status === 'open').length },
     { id: 'reviews', label: 'Reviews', icon: Star },
+    { id: 'broadcast', label: 'Broadcast', icon: Bell },
   ];
 
   return (
@@ -233,30 +255,62 @@ function AdminContent() {
       ) : (
         <>
           {activeTab === 'analytics' && analytics && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-card p-6 rounded-lg border border-border">
-                <p className="text-sm text-muted-foreground">Total Users</p>
-                <p className="text-3xl font-semibold text-foreground">{analytics.total_users}</p>
+            <div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div className="bg-card p-6 rounded-lg border border-border">
+                  <p className="text-sm text-muted-foreground">Total Users</p>
+                  <p className="text-3xl font-semibold text-foreground">{analytics.total_users}</p>
+                </div>
+                <div className="bg-card p-6 rounded-lg border border-border">
+                  <p className="text-sm text-muted-foreground">Total Products</p>
+                  <p className="text-3xl font-semibold text-foreground">{analytics.total_products}</p>
+                </div>
+                <div className="bg-card p-6 rounded-lg border border-border">
+                  <p className="text-sm text-muted-foreground">Pending</p>
+                  <p className="text-3xl font-semibold text-destructive">{analytics.pending_products}</p>
+                </div>
+                <div className="bg-card p-6 rounded-lg border border-border">
+                  <p className="text-sm text-muted-foreground">Sold</p>
+                  <p className="text-3xl font-semibold text-green-600">{analytics.sold_products}</p>
+                </div>
+                <div className="bg-card p-6 rounded-lg border border-border">
+                  <p className="text-sm text-muted-foreground">Customers</p>
+                  <p className="text-3xl font-semibold text-foreground">{analytics.customers}</p>
+                </div>
+                <div className="bg-card p-6 rounded-lg border border-border">
+                  <p className="text-sm text-muted-foreground">Sellers</p>
+                  <p className="text-3xl font-semibold text-foreground">{analytics.sellers}</p>
+                </div>
               </div>
-              <div className="bg-card p-6 rounded-lg border border-border">
-                <p className="text-sm text-muted-foreground">Total Products</p>
-                <p className="text-3xl font-semibold text-foreground">{analytics.total_products}</p>
-              </div>
-              <div className="bg-card p-6 rounded-lg border border-border">
-                <p className="text-sm text-muted-foreground">Pending Approval</p>
-                <p className="text-3xl font-semibold text-destructive">{analytics.pending_products}</p>
-              </div>
-              <div className="bg-card p-6 rounded-lg border border-border">
-                <p className="text-sm text-muted-foreground">Sold</p>
-                <p className="text-3xl font-semibold text-green-600">{analytics.sold_products}</p>
-              </div>
-              <div className="bg-card p-6 rounded-lg border border-border">
-                <p className="text-sm text-muted-foreground">Customers</p>
-                <p className="text-3xl font-semibold text-foreground">{analytics.customers}</p>
-              </div>
-              <div className="bg-card p-6 rounded-lg border border-border">
-                <p className="text-sm text-muted-foreground">Sellers</p>
-                <p className="text-3xl font-semibold text-foreground">{analytics.sellers}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-card p-6 rounded-lg border border-border">
+                  <h3 className="text-lg font-medium mb-4">Products by Category</h3>
+                  {(analytics as any).products_by_category?.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={250}>
+                      <PieChart>
+                        <Pie data={(analytics as any).products_by_category} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                          {((analytics as any).products_by_category || []).map((_: any, i: number) => (
+                            <Cell key={i} fill={['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'][i % 5]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : <p className="text-muted-foreground text-center py-10">No data</p>}
+                </div>
+                <div className="bg-card p-6 rounded-lg border border-border">
+                  <h3 className="text-lg font-medium mb-4">Users by Role</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={(analytics as any).users_over_time || []}>
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="count" fill="#3b82f6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           )}
@@ -401,6 +455,36 @@ function AdminContent() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'broadcast' && (
+            <div className="bg-card p-6 rounded-lg border border-border max-w-xl">
+              <h3 className="text-lg font-medium mb-4">Broadcast Notification</h3>
+              <p className="text-sm text-muted-foreground mb-4">Send notification to all users.</p>
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  value={broadcastTitle}
+                  onChange={(e) => setBroadcastTitle(e.target.value)}
+                  placeholder="Title"
+                  className="w-full border rounded-lg px-3 py-2"
+                />
+                <textarea
+                  value={broadcastMessage}
+                  onChange={(e) => setBroadcastMessage(e.target.value)}
+                  placeholder="Message"
+                  rows={4}
+                  className="w-full border rounded-lg px-3 py-2"
+                />
+                <button
+                  onClick={handleBroadcast}
+                  disabled={actionLoading === -1}
+                  className="w-full py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50"
+                >
+                  {actionLoading === -1 ? 'Sending...' : 'Send to All Users'}
+                </button>
+              </div>
             </div>
           )}
         </>
