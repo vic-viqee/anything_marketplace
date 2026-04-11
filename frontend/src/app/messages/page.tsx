@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { chatApi } from '@/lib/api';
 import { useAuthStore } from '@/context/auth-store';
-import { ArrowLeft, Send, MessageCircle } from 'lucide-react';
+import { useWebSocket } from '@/lib/websocket';
+import { ArrowLeft, Send, MessageCircle, Wifi } from 'lucide-react';
 
 interface Conversation {
   id: number;
@@ -36,10 +37,27 @@ function MessagesContent() {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, token } = useAuthStore();
+
+  const handleWsMessage = (msg: { type: string; data: Record<string, unknown> }) => {
+    if (msg.type === 'new_message' && msg.data.conversation_id === selectedId) {
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        conversation_id: msg.data.conversation_id as number,
+        sender_id: msg.data.sender_id as number,
+        content: msg.data.content as string,
+        is_read: false,
+        created_at: new Date().toISOString()
+      }]);
+    }
+  };
+
+  const { connected } = useWebSocket(token, handleWsMessage);
+  useEffect(() => setWsConnected(connected), [connected]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -104,9 +122,17 @@ function MessagesContent() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="font-serif text-3xl text-foreground">Messages</h1>
-        <p className="mt-1 text-muted-foreground">Chat with buyers and sellers</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="font-serif text-3xl text-foreground">Messages</h1>
+          <p className="mt-1 text-muted-foreground">Chat with buyers and sellers</p>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Wifi className={`w-4 h-4 ${wsConnected ? 'text-green-500' : 'text-muted-foreground'}`} />
+          <span className={wsConnected ? 'text-green-600' : 'text-muted-foreground'}>
+            {wsConnected ? 'Live' : 'Polling'}
+          </span>
+        </div>
       </div>
 
       {loading ? (

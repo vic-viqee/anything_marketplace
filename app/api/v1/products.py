@@ -7,6 +7,7 @@ import uuid
 import json
 from io import BytesIO
 from PIL import Image
+import asyncio
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -46,7 +47,7 @@ def compress_image(file: UploadFile, max_width: int = 1200, quality: int = 80) -
     return output.getvalue()
 
 
-def save_image(file: UploadFile) -> str:
+async def save_image(file: UploadFile) -> str:
     if file:
         file_ext = (
             file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
@@ -58,21 +59,26 @@ def save_image(file: UploadFile) -> str:
                 detail=f"Invalid file type. Allowed: {allowed_exts}",
             )
 
+        content = await file.read()
+        if len(content) > settings.MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Max size: {settings.MAX_UPLOAD_SIZE // (1024 * 1024)}MB",
+            )
+
         filename = f"{uuid.uuid4()}.jpg"
         filepath = os.path.join(settings.UPLOAD_DIR, filename)
 
-        file.file.seek(0)
-        content = compress_image(file)
-
+        image_content = compress_image(file)
         with open(filepath, "wb") as f:
-            f.write(content)
+            f.write(image_content)
 
         return filename
     return None
 
 
 @router.post("", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
-def create_product(
+async def create_product(
     title: str = Form(...),
     description: Optional[str] = Form(None),
     price: int = Form(...),
@@ -89,7 +95,7 @@ def create_product(
 
     image_url = None
     if image:
-        image_url = save_image(image)
+        image_url = await save_image(image)
 
     if category_id:
         category = db.query(Category).filter(Category.id == category_id).first()
@@ -150,6 +156,7 @@ def list_products(
     skip: int = 0,
     limit: int = 20,
     category_id: Optional[int] = None,
+    search: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Product).filter(
@@ -159,6 +166,13 @@ def list_products(
     if category_id:
         query = query.filter(Product.category_id == category_id)
 
+    if search:
+        search_term = search.strip()
+        query = query.filter(
+            Product.title.ilike(f"%{search_term}%")
+            | Product.description.ilike(f"%{search_term}%")
+        )
+
     products = query.order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
     return products
 
@@ -167,12 +181,14 @@ def list_products(
 def latest_feed(
     page: int = 1,
     page_size: int = 20,
+    search: Optional[str] = None,
+    category_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
-    cache_key = f"feed:{page}:{page_size}"
+    cache_key = f"feed:{page}:{page_size}:{search or 'all'}:{category_id or 'all'}"
 
     cached = None
-    if redis_client.redis:
+    if redis_client.redis and not search:
         import asyncio
 
         try:
@@ -192,13 +208,22 @@ def latest_feed(
         return json.loads(cached)
 
     skip = (page - 1) * page_size
+    query = db.query(Product).filter(
+        Product.status == ProductStatus.AVAILABLE, Product.is_approved == True
+    )
+
+    if category_id:
+        query = query.filter(Product.category_id == category_id)
+
+    if search:
+        search_term = search.strip()
+        query = query.filter(
+            Product.title.ilike(f"%{search_term}%")
+            | Product.description.ilike(f"%{search_term}%")
+        )
+
     products = (
-        db.query(Product)
-        .filter(Product.status == ProductStatus.AVAILABLE, Product.is_approved == True)
-        .order_by(Product.created_at.desc())
-        .offset(skip)
-        .limit(page_size)
-        .all()
+        query.order_by(Product.created_at.desc()).offset(skip).limit(page_size).all()
     )
 
     result = [
@@ -214,7 +239,7 @@ def latest_feed(
         for p in products
     ]
 
-    if redis_client.redis:
+    if redis_client.redis and not search:
         import asyncio
 
         try:
@@ -297,7 +322,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{product_id}", response_model=ProductResponse)
-def update_product(
+async def update_product(
     product_id: int,
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
@@ -337,7 +362,7 @@ def update_product(
             old_path = os.path.join(settings.UPLOAD_DIR, product.image_url)
             if os.path.exists(old_path):
                 os.remove(old_path)
-        product.image_url = save_image(image)
+        product.image_url = await save_image(image)
 
     product.updated_at = datetime.utcnow()
     db.commit()

@@ -17,11 +17,12 @@ A P2P (peer-to-peer) marketplace MVP for buying and selling anything. Built with
 
 ### Backend
 - **FastAPI** - Modern Python web framework
-- **PostgreSQL** - Primary database
-- **Redis** - Caching for feed endpoints
+- **PostgreSQL** - Primary database (Neon on production)
+- **Redis** - Caching for feed endpoints (optional)
 - **SQLAlchemy** - ORM for database operations
 - **JWT** - Token-based authentication
 - **Pillow** - Image compression
+- **Cloudinary** - Image storage (production)
 
 ### Frontend
 - **Next.js 16** - React framework with App Router
@@ -97,7 +98,7 @@ npm run dev
 # Frontend runs at http://localhost:3000
 ```
 
-### Environment Variables
+### Environment Variables (Local Development)
 
 Create `.env` file in project root:
 ```
@@ -107,11 +108,17 @@ REDIS_PORT=6379
 SECRET_KEY=supersecretkey123456789
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
-UPLOAD_DIR=./uploads
 
-# Default admin account (for development)
-ADMIN_PHONE=+254700000010
-ADMIN_PASSWORD=password
+# CORS
+CORS_ORIGINS=["http://localhost:3000"]
+
+# Rate limiting
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_DEFAULT=100/minute
+RATE_LIMIT_AUTH=10/minute
+
+# Storage
+STORAGE_TYPE=local
 ```
 
 For frontend, create `.env.local`:
@@ -119,15 +126,24 @@ For frontend, create `.env.local`:
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-## Default Accounts
+### Environment Variables (Production - Render)
 
-| Phone | Password | Role |
-|-------|----------|------|
-| +254700000010 | password | Admin |
-| +254700000011 | password | Seller |
-| +254700000002 | test123 | Customer |
+For backend on Render:
+```
+DATABASE_URL=postgresql://neondb_owner:password@ep-xxx.eu-west-2.aws.neon.tech/neondb?sslmode=require
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+SECRET_KEY=random_32_char_string
+DEBUG=false
+CORS_ORIGINS=["https://your-frontend.onrender.com"]
+REDIS_HOST=
+```
 
-You can also login with username instead of phone number.
+For frontend on Render:
+```
+NEXT_PUBLIC_API_URL=https://your-backend.onrender.com
+```
 
 ## API Endpoints
 
@@ -139,16 +155,18 @@ You can also login with username instead of phone number.
 - `POST /api/v1/auth/me/profile-image` - Upload profile photo
 
 ### Products
-- `GET /api/v1/products/feed` - Latest approved listings (paginated, cached)
-- `GET /api/v1/products` - All listings
+- `GET /api/v1/products/feed` - Latest approved listings (paginated, cached, searchable)
+- `GET /api/v1/products` - All listings (with search)
 - `GET /api/v1/products/{id}` - Single product
 - `POST /api/v1/products` - Create listing (seller required)
 - `PUT /api/v1/products/{id}` - Update listing
 - `DELETE /api/v1/products/{id}` - Delete listing
 - `POST /api/v1/products/{id}/mark-sold` - Mark as sold
 - `GET /api/v1/products/categories` - List categories
+- `POST /api/v1/products/categories` - Create category
 - `POST /api/v1/products/{id}/ratings` - Rate seller
 - `GET /api/v1/products/users/{id}/ratings` - Get user rating stats
+- `GET /api/v1/products/my-products` - Seller's products
 
 ### Chat
 - `POST /api/v1/chat/conversations` - Create conversation
@@ -159,15 +177,24 @@ You can also login with username instead of phone number.
 - `GET /api/v1/chat/nudges` - Get conversation nudges
 - `GET /api/v1/chat/unread-count` - Get unread message count
 
+### WebSocket
+- `WS /api/v1/ws/chat?token={jwt}` - Real-time chat connection
+
 ### Admin
 - `GET /api/v1/admin/analytics` - Dashboard stats
 - `GET /api/v1/admin/products/pending` - Pending products
 - `POST /api/v1/admin/products/{id}/approve` - Approve product
 - `POST /api/v1/admin/products/{id}/reject` - Reject product
-- `GET /api/v1/admin/users` - List users
+- `POST /api/v1/admin/products/bulk` - Bulk approve/reject
+- `GET /api/v1/admin/users` - List users (searchable)
+- `GET /api/v1/admin/users/{id}` - Get user details
 - `PATCH /api/v1/admin/users/{id}/role` - Update user role
+- `PATCH /api/v1/admin/users/{id}/deactivate` - Toggle user status
 - `DELETE /api/v1/admin/users/{id}` - Delete user
 - `DELETE /api/v1/admin/products/{id}` - Delete product
+- `GET /api/v1/admin/export/users.csv` - Export users CSV
+- `GET /api/v1/admin/export/products.csv` - Export products CSV
+- `POST /api/v1/admin/notify` - Send notification to user
 
 ## Frontend Pages
 
@@ -186,16 +213,23 @@ You can also login with username instead of phone number.
 ### Image Handling
 - Images are automatically compressed on upload (max 1200px width for products, 400px for profiles)
 - Converted to JPEG for consistent format and smaller file sizes
-- Stored locally in `/uploads` directory
+- Local development: stored in `/uploads` directory
+- Production: uploaded to Cloudinary CDN
 
 ### Authentication
 - JWT-based authentication with 60-minute token expiry
 - Login accepts either phone number or username
 - Secure password hashing with bcrypt
+- Token invalidation on password change (via password_version)
 
 ### Caching
 - Product feed is cached in Redis (5-minute TTL)
 - Reduces database load for frequently accessed endpoints
+
+### Security
+- Rate limiting on auth endpoints (10/minute) and default endpoints (100/minute)
+- File size validation (10MB max)
+- CORS restricted to configured origins
 
 ### Theming
 - Light/dark mode toggle in navbar

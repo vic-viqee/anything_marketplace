@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from pydantic import BaseModel
@@ -23,9 +23,32 @@ import os
 import uuid
 from io import BytesIO
 from PIL import Image
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 settings = get_settings()
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+
+def compress_image_bytes(content: bytes, max_width: int = 400) -> bytes:
+    image = Image.open(BytesIO(content))
+    if image.mode == "RGBA":
+        background = Image.new("RGBA", image.size, (255, 255, 255))
+        background.paste(image, mask=image.split()[3])
+        image = background.convert("RGB")
+    elif image.mode != "RGB":
+        image = image.convert("RGB")
+
+    width, height = image.size
+    if width > max_width:
+        ratio = max_width / width
+        new_height = int(height * ratio)
+        image = image.resize((max_width, new_height), Image.LANCZOS)
+
+    output = BytesIO()
+    image.save(output, format="JPEG", quality=85, optimize=True)
+    return output.getvalue()
 
 
 class TokenWithUser(BaseModel):
@@ -37,7 +60,8 @@ class TokenWithUser(BaseModel):
 @router.post(
     "/register", response_model=TokenWithUser, status_code=status.HTTP_201_CREATED
 )
-def register(user_data: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def register(request: Request, user_data: UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.phone == user_data.phone).first()
     if existing_user:
         raise HTTPException(
@@ -71,7 +95,8 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": new_user.id}, expires_delta=access_token_expires
+        data={"sub": new_user.id, "v": new_user.password_version},
+        expires_delta=access_token_expires,
     )
     return TokenWithUser(
         access_token=access_token,
@@ -88,7 +113,8 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-def login(user_data: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, user_data: UserLogin, db: Session = Depends(get_db)):
     if not user_data.phone and not user_data.username:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -114,7 +140,8 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.id}, expires_delta=access_token_expires
+        data={"sub": user.id, "v": user.password_version},
+        expires_delta=access_token_expires,
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -150,6 +177,7 @@ def update_current_user(
 
     if user_data.password is not None:
         current_user.hashed_password = get_password_hash(user_data.password)
+        current_user.password_version = (current_user.password_version or 1) + 1
 
     db.commit()
     db.refresh(current_user)
@@ -196,6 +224,13 @@ async def upload_profile_image(
             detail=f"Invalid file type. Allowed: {allowed_exts}",
         )
 
+    content = await file.read()
+    if len(content) > settings.MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Max size: {settings.MAX_UPLOAD_SIZE // (1024 * 1024)}MB",
+        )
+
     if current_user.profile_image:
         old_path = os.path.join(settings.UPLOAD_DIR, current_user.profile_image)
         if os.path.exists(old_path):
@@ -204,9 +239,9 @@ async def upload_profile_image(
     filename = f"profile_{current_user.id}_{uuid.uuid4()}.jpg"
     filepath = os.path.join(settings.UPLOAD_DIR, filename)
 
-    content = compress_image(file)
+    image_content = compress_image_bytes(content)
     with open(filepath, "wb") as f:
-        f.write(content)
+        f.write(image_content)
 
     current_user.profile_image = filename
     db.commit()

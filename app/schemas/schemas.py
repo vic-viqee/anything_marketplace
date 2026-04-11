@@ -4,18 +4,18 @@ from datetime import datetime
 
 
 class UserBase(BaseModel):
-    phone: str
-    username: Optional[str] = None
+    phone: str = Field(..., min_length=10, max_length=20)
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
 
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(..., min_length=6, max_length=100)
     role: Optional[str] = "customer"
 
 
 class UserUpdate(BaseModel):
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
+    password: Optional[str] = Field(None, min_length=6, max_length=100)
     profile_image: Optional[str] = None
 
 
@@ -75,9 +75,9 @@ class CategoryResponse(CategoryBase):
 
 
 class ProductBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    price: int
+    title: str = Field(..., min_length=3, max_length=100)
+    description: Optional[str] = Field(None, max_length=2000)
+    price: int = Field(..., ge=0, le=100000000)
     category_id: Optional[int] = None
 
 
@@ -86,9 +86,9 @@ class ProductCreate(ProductBase):
 
 
 class ProductUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    price: Optional[int] = None
+    title: Optional[str] = Field(None, min_length=3, max_length=100)
+    description: Optional[str] = Field(None, max_length=2000)
+    price: Optional[int] = Field(None, ge=0, le=100000000)
     category_id: Optional[int] = None
     image_url: Optional[str] = None
 
@@ -116,11 +116,6 @@ class ProductListResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-    image_url: Optional[str] = None
-    status: str
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class ConversationBase(BaseModel):
@@ -142,7 +137,7 @@ class ConversationResponse(ConversationBase):
 
 
 class MessageBase(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=5000)
 
 
 class MessageCreate(MessageBase):
@@ -163,7 +158,7 @@ class RatingBase(BaseModel):
     rated_user_id: int
     product_id: int
     stars: int = Field(ge=1, le=5)
-    comment: Optional[str] = None
+    comment: Optional[str] = Field(None, max_length=1000)
 
 
 class RatingCreate(RatingBase):
@@ -204,6 +199,7 @@ class AnalyticsResponse(BaseModel):
     sold_products: int
     customers: int
     sellers: int
+    activity_today: Optional[int] = 0
 
 
 class TicketResponse(BaseModel):
@@ -217,3 +213,9 @@ class TicketResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class SendNotificationRequest(BaseModel):
+    user_id: int
+    title: str = Field(..., min_length=1, max_length=100)
+    message: str = Field(..., min_length=1, max_length=500)

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { productsApi } from '@/lib/api';
 import { ProductListItem, Category } from '@/types';
 import ProductCard from '@/components/ProductCard';
+import { Search } from 'lucide-react';
 
 export default function Home() {
   const [products, setProducts] = useState<ProductListItem[]>([]);
@@ -12,16 +13,23 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
 
   useEffect(() => {
     loadProducts(1);
     loadCategories();
   }, []);
 
-  const loadProducts = async (pageNum: number) => {
+  const loadProducts = async (pageNum: number, searchTerm?: string) => {
     try {
       setLoading(true);
-      const res = await productsApi.feed({ page: pageNum, page_size: 12 });
+      const res = await productsApi.feed({
+        page: pageNum,
+        page_size: 12,
+        search: searchTerm || undefined,
+        category_id: selectedCategory || undefined
+      });
       if (pageNum === 1) {
         setProducts(res.data);
       } else {
@@ -44,10 +52,18 @@ export default function Home() {
     }
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const term = searchInput.trim();
+    setSearch(term);
+    setPage(1);
+    loadProducts(1, term);
+  };
+
   const handleLoadMore = () => {
     const nextPage = page + 1;
     setPage(nextPage);
-    loadProducts(nextPage);
+    loadProducts(nextPage, search || undefined);
   };
 
   return (
@@ -56,6 +72,19 @@ export default function Home() {
         <h1 className="font-serif text-4xl text-foreground">Discover</h1>
         <p className="mt-2 text-muted-foreground">Find anything you need</p>
       </div>
+
+      <form onSubmit={handleSearch} className="mb-6">
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search products..."
+            className="w-full pl-12 pr-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+      </form>
 
       <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
         <button

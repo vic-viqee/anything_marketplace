@@ -13,3 +13,4 @@ python-dotenv>=1.0.1
 Cython<3
 numpy
 Pillow>=10.0.0
+slowapi>=0.1.9

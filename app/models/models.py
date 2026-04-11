@@ -27,6 +27,7 @@ class User(Base):
     phone = Column(String(20), unique=True, index=True, nullable=False)
     username = Column(String(50), unique=True, index=True, nullable=True)
     hashed_password = Column(String(255), nullable=False)
+    password_version = Column(Integer, default=1)
     profile_image = Column(String(500), nullable=True)
     role = Column(SQLEnum(UserRole), default=UserRole.CUSTOMER, nullable=False)
     is_active = Column(Boolean, default=True)
@@ -40,20 +41,46 @@ class User(Base):
         "Conversation",
         back_populates="initiator",
         foreign_keys="Conversation.initiator_id",
+        cascade="all, delete-orphan",
     )
     conversations_received = relationship(
         "Conversation",
         back_populates="receiver",
         foreign_keys="Conversation.receiver_id",
+        cascade="all, delete-orphan",
     )
     messages = relationship(
         "Message", back_populates="sender", cascade="all, delete-orphan"
     )
     ratings_given = relationship(
-        "Rating", back_populates="rater", foreign_keys="Rating.rater_id"
+        "Rating",
+        back_populates="rater",
+        foreign_keys="Rating.rater_id",
+        cascade="all, delete-orphan",
     )
     ratings_received = relationship(
-        "Rating", back_populates="rated_user", foreign_keys="Rating.rated_user_id"
+        "Rating",
+        back_populates="rated_user",
+        foreign_keys="Rating.rated_user_id",
+        cascade="all, delete-orphan",
+    )
+    notifications = relationship(
+        "Notification", back_populates="user", cascade="all, delete-orphan"
+    )
+    activity_logs = relationship(
+        "ActivityLog", back_populates="user", cascade="all, delete-orphan"
+    )
+    tickets = relationship(
+        "Ticket",
+        back_populates="user",
+        foreign_keys="Ticket.user_id",
+        cascade="all, delete-orphan",
+    )
+    tickets_reported = relationship(
+        "Ticket",
+        back_populates="reported_user",
+        foreign_keys="Ticket.reported_user_id",
+        cascade="all, delete-orphan",
     )
 
 
@@ -182,7 +209,7 @@ class Notification(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    user = relationship("User")
+    user = relationship("User", back_populates="notifications")
 
 
 class TicketStatus(str, enum.Enum):
@@ -212,6 +239,22 @@ class Ticket(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    user = relationship("User", foreign_keys=[user_id])
-    reported_user = relationship("User", foreign_keys=[reported_user_id])
+    user = relationship("User", foreign_keys=[user_id], back_populates="tickets")
+    reported_user = relationship(
+        "User", foreign_keys=[reported_user_id], back_populates="tickets_reported"
+    )
     product = relationship("Product")
+
+
+class ActivityLog(Base):
+    __tablename__ = "activity_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    action = Column(String(100), nullable=False)
+    entity_type = Column(String(50), nullable=False)
+    entity_id = Column(Integer, nullable=False)
+    details = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="activity_logs")

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
+import asyncio
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -12,6 +13,7 @@ from app.schemas.schemas import (
     MessageCreate,
     MessageResponse,
 )
+from app.services.websocket_manager import manager, create_message_payload
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
@@ -206,6 +208,23 @@ def send_message(
     db.add(message)
     db.commit()
     db.refresh(message)
+
+    recipient_id = (
+        conversation.receiver_id
+        if conversation.initiator_id == current_user.id
+        else conversation.initiator_id
+    )
+
+    payload = create_message_payload(
+        "new_message",
+        {
+            "conversation_id": conversation.id,
+            "sender_id": current_user.id,
+            "content": message_data.content,
+        },
+    )
+    asyncio.create_task(manager.send_personal_message(payload, recipient_id))
+
     return message
 
 

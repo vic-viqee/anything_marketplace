@@ -18,6 +18,15 @@ class Settings(BaseSettings):
 
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024
+    MAX_IMAGE_WIDTH: int = 1200
+    MAX_PROFILE_WIDTH: int = 400
+
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_DEFAULT: str = "100/minute"
+    RATE_LIMIT_AUTH: str = "10/minute"
+    RATE_LIMIT_ADMIN: str = "200/minute"
 
     class Config:
         env_file = ".env"

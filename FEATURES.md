@@ -4,24 +4,53 @@ This document contains the complete features overview for the Anything Marketpla
 
 ---
 
-## What's Built (Phase 1 MVP)
+## Deployment
+
+### Live URLs
+- **Backend API**: `https://anything-marketplace-api.onrender.com`
+- **Frontend**: `https://anything-marketplace-web.onrender.com`
+
+### Infrastructure
+- **Database**: Neon PostgreSQL (free tier)
+- **Image Storage**: Cloudinary (free tier)
+- **Hosting**: Render (free tier)
+
+### Deployment Notes
+- Free tier spins down after 15 min inactivity
+- PostgreSQL expires in 90 days (recreate or upgrade to paid)
+- For production: add Redis cache ($7+/month), upgrade DB
+
+---
+
+## What's Built (MVP v2)
 
 ### Core Features
 - Product feed with category filters (paginated, Redis-cached)
+- Product search (title/description)
 - Post ads with images (auto-compressed to 1200px max)
-- Product approval system (admin moderates before public)
-- Built-in P2P chat messaging
+- Product approval system (admin moderates before live)
+- P2P chat messaging (WebSocket-enabled, real-time)
 - In-app notifications for product approval/rejection
 - Mark items as sold
 - User ratings (1-5 stars)
 - User profiles with photo, username, password management
 - Dark/light mode theming
 
-### Technical
-- JWT-based authentication
-- PostgreSQL database
-- Redis caching for improved performance
-- Image compression and storage
+### Security Features
+- JWT token invalidation on password change
+- Rate limiting on auth endpoints
+- File size validation (10MB max)
+- CORS configuration
+- Input validation (Pydantic)
+
+### Admin Features
+- Analytics dashboard
+- Product moderation (approve/reject/bulk)
+- User management (roles, deactivate, delete)
+- Support ticket system
+- Activity logs
+- CSV export
+- Direct notification to users
 
 ---
 
@@ -62,21 +91,21 @@ This document contains the complete features overview for the Anything Marketpla
 
 ## Admin Dashboard Features
 
-### Priority 1: Core Essentials (Building Now)
+### Priority 1: Core Essentials (Built)
 
 | Feature | Status |
 |---------|--------|
-| **User Management** - View all users, change roles, deactivate accounts | Building |
-| **Product Oversight** - Approve/reject listings, delete any product | Building |
-| **Analytics** - Better dashboard with GMV, category breakdown | Building |
+| **User Management** - View all users, change roles, deactivate accounts
+| **Product Oversight** - Approve/reject listings, delete any product
+| **Analytics** - Better dashboard with GMV, category breakdown
 
-### Priority 2: Trust & Safety (Building Now)
+### Priority 2: Trust & Safety
 
 | Feature | Status |
 |---------|--------|
-| **Ticket System** - Users can report issues | Building |
-| **Dispute Resolution** - View buyer-seller chats for mediation | Building |
-| **Review Moderation** - Delete inappropriate ratings | Building |
+| **Ticket System** - Users can report issues | ✅ Built |
+| **Dispute Resolution** - View buyer-seller chats for mediation | ✅ Built |
+| **Review Moderation** - Delete inappropriate ratings | ✅ Built |
 
 ### Priority 3: Revenue & Payments (Later)
 
@@ -101,22 +130,21 @@ This document contains the complete features overview for the Anything Marketpla
 ## Planned Features
 
 ### High Priority
-- Product detail page - ✅ Completed (now shows seller info, ratings, contact options)
 - Product view tracking - Allow sellers to see view counts
-- WhatsApp integration - Full WhatsApp Business integration
+- WhatsApp Business integration
+- Push notifications
 
 ### Medium Priority
-- Real-time chat (WebSocket)
-- Push notifications
-- Email notifications
-- Product search
-
-### Lower Priority
-- Favorites/Wishlist
 - Multiple images per product
+- Favorites/Wishlist
+- Email notifications
 - Shipping integration
 - Online payment support
+
+### Lower Priority
 - Report/Flag content
+- Subscription Model - Membership/tier access
+- Email Automation - Auto-emails for events
 
 ---
 
@@ -129,4 +157,15 @@ This document contains the complete features overview for the Anything Marketpla
 
 ---
 
-_Last updated: 2026-04-08_
+## Technical Infrastructure
+
+| Component | Local | Production |
+|-----------|-------|-----------|
+| Database | PostgreSQL (Docker) | Neon PostgreSQL |
+| Cache | Redis (Docker) | Disabled (free tier) |
+| Storage | Local /uploads | Cloudinary CDN |
+| Hosting | Localhost | Render |
+
+---
+
+_Last updated: 2026-04-11_

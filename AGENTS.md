@@ -16,9 +16,10 @@
 
 ### Features
 - Product feed with category filters (paginated, Redis-cached)
+- Product search (title/description)
 - Post ads with images (auto-compressed to 1200px max)
-- Product approval system (admin moderates before public)
-- Built-in P2P chat messaging
+- Product approval system (admin moderates before live)
+- Built-in P2P chat messaging (WebSocket-enabled, real-time)
 - In-app notifications (product approved/rejected)
 - Mark items as sold
 - User ratings (1-5 stars)
@@ -26,6 +27,11 @@
 - Dark/light mode theming
 - Product detail page with seller info
 - Contact seller via inbuilt chat or WhatsApp
+- Admin dashboard with analytics, bulk actions, activity logs
+- Support ticket system (reports, disputes)
+- CSV export for users/products
+- JWT token invalidation on password change
+- Rate limiting on auth endpoints
 
 ### User Roles
 - **Customer**: Browse, message sellers, rate after purchase
@@ -42,9 +48,10 @@
 - **Redis** - Caching for feed endpoints
 - **SQLAlchemy** - ORM
 - **Pydantic** - Data validation
-- **JWT** - Token-based auth
+- **JWT** - Token-based auth with password versioning
 - **Pillow** - Image compression
 - **Passlib** - Password hashing
+- **SlowAPI** - Rate limiting
 
 ### Frontend
 - **Next.js 16** - React framework (App Router)
@@ -114,7 +121,9 @@ app/
 │       ├── ratings.py      # Rating endpoints
 │       ├── nudge.py        # Chat nudges
 │       ├── admin.py        # Admin: analytics, user/product management
-│       └── notifications.py # In-app notifications
+│       ├── notifications.py # In-app notifications
+│       ├── tickets.py      # Support tickets
+│       └── websocket.py     # WebSocket endpoint for real-time chat
 ├── core/
 │   ├── config.py          # Settings (from .env)
 │   ├── database.py        # SQLAlchemy setup, get_db
@@ -125,7 +134,9 @@ app/
 │   └── schemas.py         # Pydantic: UserCreate, UserLogin, ProductCreate, etc.
 ├── services/
 │   ├── auth_service.py    # Password hashing, token creation
-│   └── redis_service.py   # Redis caching
+│   ├── redis_service.py   # Redis caching
+│   ├── storage_service.py # Storage abstraction (local/S3/Cloudinary)
+│   └── websocket_manager.py # WebSocket connection manager
 └── main.py                # FastAPI app entry, CORS, routers
 ```
 
@@ -169,6 +180,7 @@ frontend/src/
 - `phone` (unique, indexed)
 - `username` (unique, indexed, nullable)
 - `hashed_password`
+- `password_version` (integer - for token invalidation)
 - `profile_image` (nullable)
 - `role` (enum: customer/seller/admin)
 - `is_active` (boolean)
@@ -231,16 +243,18 @@ frontend/src/
 ### Products (`/api/v1/products`)
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | /feed | Paginated approved listings | No |
-| GET | / | All approved listings | No |
+| GET | /feed | Paginated approved listings (cached) | No |
+| GET | / | All approved listings (with search) | No |
 | GET | /{id} | Single product | No |
 | POST | / | Create listing | Seller+ |
 | PUT | /{id} | Update listing | Owner |
 | DELETE | /{id} | Delete listing | Owner |
 | POST | /{id}/mark-sold | Mark as sold | Owner |
 | GET | /categories | List categories | No |
+| POST | /categories | Create category | Yes |
 | POST | /{id}/ratings | Rate seller | Customer |
 | GET | /users/{id}/ratings | Get user ratings | No |
+| GET | /my-products | Seller's products | Seller+ |
 
 ### Chat (`/api/v1/chat`)
 | Method | Endpoint | Description | Auth |
@@ -253,6 +267,11 @@ frontend/src/
 | GET | /nudges | Get nudges | Yes |
 | GET | /unread-count | Get unread count | Yes |
 
+### WebSocket (`/api/v1/ws/chat`)
+| Endpoint | Description |
+|----------|-------------|
+| /ws/chat?token={jwt} | Real-time chat (WebSocket) |
+
 ### Admin (`/api/v1/admin`)
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
@@ -260,10 +279,15 @@ frontend/src/
 | GET | /products/pending | Pending products | Admin |
 | POST | /products/{id}/approve | Approve product | Admin |
 | POST | /products/{id}/reject | Reject product | Admin |
-| GET | /users | List users | Admin |
+| POST | /products/bulk | Bulk approve/reject | Admin |
+| GET | /users | List users (with search/filter) | Admin |
 | PATCH | /users/{id}/role | Update role | Admin |
+| PATCH | /users/{id}/deactivate | Toggle user status | Admin |
 | DELETE | /users/{id} | Delete user | Admin |
 | DELETE | /products/{id} | Delete product | Admin |
+| GET | /export/users.csv | Export users as CSV | Admin |
+| GET | /export/products.csv | Export products as CSV | Admin |
+| POST | /notify | Send notification to user | Admin |
 
 ---
 
@@ -304,7 +328,7 @@ frontend/src/
 
 ## Environment Variables
 
-### Backend (.env)
+### Backend (.env) - Local Development
 ```
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/marketplace
 REDIS_HOST=localhost
@@ -312,14 +336,39 @@ REDIS_PORT=6379
 SECRET_KEY=your-secret-key
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
-UPLOAD_DIR=./uploads
-ADMIN_PHONE=+254700000010
-ADMIN_PASSWORD=password
+
+# CORS
+CORS_ORIGINS=["http://localhost:3000"]
+
+# Rate limiting
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_DEFAULT=100/minute
+RATE_LIMIT_AUTH=10/minute
+
+# Storage
+STORAGE_TYPE=local
 ```
 
-### Frontend (.env.local)
+### Backend (.env) - Production (Render)
+```
+DATABASE_URL=postgresql://user:pass@ep-xxx.eu-west-2.aws.neon.tech/neondb?sslmode=require
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+SECRET_KEY=random_32_char_string
+DEBUG=false
+CORS_ORIGINS=["https://anything-marketplace-web.onrender.com"]
+REDIS_HOST=
+```
+
+### Frontend (.env.local) - Local Development
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+### Frontend - Production (Render)
+```
+NEXT_PUBLIC_API_URL=https://anything-marketplace-api.onrender.com
 ```
 
 ---
@@ -355,16 +404,6 @@ if (!isAuthenticated) router.push('/login');
 
 ---
 
-## Default Test Accounts
-
-| Phone | Password | Role |
-|-------|----------|------|
-| +254700000010 | password | Admin |
-| +254700000011 | password | Seller |
-| +254700000002 | test123 | Customer |
-
----
-
 ## Image Handling
 
 ### Backend Compression
@@ -396,7 +435,3 @@ if (!isAuthenticated) router.push('/login');
 4. **No placeholders** - implement complete, working code
 5. **No hardcoded secrets** - use environment variables
 6. **Frontend runs on :3000, Backend on :8000**
-7. **Product detail page NOT implemented** - ProductCard links to `/product/{id}` but route doesn't exist yet
-8. **Login accepts phone OR username** - auto-detects format
-9. **Admin cannot post like seller** - role check in backend, but admin sees "Post Ad" link (intentional)
-10. **Build both frontend and backend** - verify changes work end-to-end

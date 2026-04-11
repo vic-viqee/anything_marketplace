@@ -41,10 +41,10 @@ export const authApi = {
 };
 
 export const productsApi = {
-  list: (params?: { skip?: number; limit?: number; category_id?: number }) =>
+  list: (params?: { skip?: number; limit?: number; category_id?: number; search?: string }) =>
     api.get('/api/v1/products', { params }),
   
-  feed: (params?: { page?: number; page_size?: number }) =>
+  feed: (params?: { page?: number; page_size?: number; search?: string; category_id?: number }) =>
     api.get('/api/v1/products/feed', { params }),
   
   get: (id: number) => api.get(`/api/v1/products/${id}`),
@@ -99,13 +99,17 @@ export const chatApi = {
 export const adminApi = {
   getAnalytics: () => api.get('/api/v1/admin/analytics'),
   
-  getPendingProducts: () => api.get('/api/v1/admin/products/pending'),
+  getPendingProducts: (params?: { skip?: number; limit?: number; search?: string }) =>
+    api.get('/api/v1/admin/products/pending', { params }),
   
   approveProduct: (productId: number) => api.post(`/api/v1/admin/products/${productId}/approve`),
   
   rejectProduct: (productId: number) => api.post(`/api/v1/admin/products/${productId}/reject`),
   
-  listUsers: (params?: { skip?: number; limit?: number }) =>
+  bulkAction: (data: { product_ids: number[]; action: string }) =>
+    api.post('/api/v1/admin/products/bulk', data),
+  
+  listUsers: (params?: { skip?: number; limit?: number; search?: string; role?: string; is_active?: boolean }) =>
     api.get('/api/v1/admin/users', { params }),
   
   getUser: (userId: number) => api.get(`/api/v1/admin/users/${userId}`),

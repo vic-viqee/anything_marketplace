@@ -20,6 +20,8 @@ function AdminContent() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'users' | 'tickets' | 'reviews'>('analytics');
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated || !isAdmin) {
@@ -73,62 +75,110 @@ function AdminContent() {
   }, [activeTab]);
 
   const handleApprove = async (productId: number) => {
+    setActionLoading(productId);
+    setError(null);
     try {
       await adminApi.approveProduct(productId);
       setPendingProducts(prev => prev.filter(p => p.id !== productId));
-    } catch {}
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to approve product');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleReject = async (productId: number) => {
+    setActionLoading(productId);
+    setError(null);
     try {
       await adminApi.rejectProduct(productId);
       setPendingProducts(prev => prev.filter(p => p.id !== productId));
-    } catch {}
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to reject product');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleDeleteProduct = async (productId: number) => {
     if (!confirm('Delete this product?')) return;
+    setActionLoading(productId);
+    setError(null);
     try {
       await adminApi.deleteProduct(productId);
       setPendingProducts(prev => prev.filter(p => p.id !== productId));
-    } catch {}
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to delete product');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleUpdateRole = async (userId: number, role: string) => {
+    setActionLoading(userId);
+    setError(null);
     try {
       await adminApi.updateUserRole(userId, role);
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, role } : u));
-    } catch {}
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to update role');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleDeactivate = async (userId: number) => {
+    setActionLoading(userId);
+    setError(null);
     try {
       await adminApi.deactivateUser(userId);
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active: !u.is_active } : u));
-    } catch {}
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to update user status');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleDeleteUser = async (userId: number) => {
     if (!confirm('Delete this user and all their data?')) return;
+    setActionLoading(userId);
+    setError(null);
     try {
       await adminApi.deleteUser(userId);
       setUsers(prev => prev.filter(u => u.id !== userId));
-    } catch {}
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to delete user');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleDeleteRating = async (ratingId: number) => {
     if (!confirm('Delete this review?')) return;
+    setActionLoading(ratingId);
+    setError(null);
     try {
       await adminApi.deleteRating(ratingId);
       setRatings(prev => prev.filter(r => r.id !== ratingId));
-    } catch {}
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to delete rating');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleUpdateTicketStatus = async (ticketId: number, status: string) => {
+    setActionLoading(ticketId);
+    setError(null);
     try {
       await adminApi.updateTicketStatus(ticketId, status);
       setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status } : t));
-    } catch {}
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to update ticket');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   if (!isAdmin) return null;
@@ -143,6 +193,12 @@ function AdminContent() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          {error}
+          <button onClick={() => setError(null)} className="ml-2 float-right">×</button>
+        </div>
+      )}
       <div className="flex justify-between items-center mb-8">
         <h1 className="font-serif text-3xl text-foreground">Admin Dashboard</h1>
         <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground">
@@ -218,13 +274,25 @@ function AdminContent() {
                         <p className="text-sm text-muted-foreground">KES {product.price.toLocaleString()}</p>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => handleApprove(product.id)} className="p-2 text-green-600 hover:bg-green-50 rounded-lg">
+                        <button 
+                          onClick={() => handleApprove(product.id)} 
+                          disabled={actionLoading === product.id}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50"
+                        >
                           <Check className="w-5 h-5" />
                         </button>
-                        <button onClick={() => handleReject(product.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded-lg">
+                        <button 
+                          onClick={() => handleReject(product.id)} 
+                          disabled={actionLoading === product.id}
+                          className="p-2 text-destructive hover:bg-destructive/10 rounded-lg disabled:opacity-50"
+                        >
                           <X className="w-5 h-5" />
                         </button>
-                        <button onClick={() => handleDeleteProduct(product.id)} className="p-2 text-muted-foreground hover:bg-muted rounded-lg">
+                        <button 
+                          onClick={() => handleDeleteProduct(product.id)} 
+                          disabled={actionLoading === product.id}
+                          className="p-2 text-muted-foreground hover:bg-muted rounded-lg disabled:opacity-50"
+                        >
                           <Trash2 className="w-5 h-5" />
                         </button>
                       </div>

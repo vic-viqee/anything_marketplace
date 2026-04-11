@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+import csv
+import io
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -18,6 +21,7 @@ from app.models.models import (
     TicketType,
     Conversation,
     Message,
+    ActivityLog,
 )
 from app.schemas.schemas import (
     ProductResponse,
@@ -25,6 +29,7 @@ from app.schemas.schemas import (
     AnalyticsResponse,
     RatingResponse,
     TicketResponse,
+    SendNotificationRequest,
 )
 from app.api.v1.notifications import create_notification
 
@@ -35,7 +40,34 @@ class RoleUpdateRequest(BaseModel):
     role: UserRole
 
 
-router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+class BulkActionRequest(BaseModel):
+    product_ids: List[int] = Field(..., min_length=1, max_length=50)
+    action: str
+
+
+class SendNotificationRequest(BaseModel):
+    user_id: int
+    title: str
+    message: str
+
+
+def log_activity(
+    db: Session,
+    user_id: int,
+    action: str,
+    entity_type: str,
+    entity_id: int,
+    details: str = None,
+):
+    log = ActivityLog(
+        user_id=user_id,
+        action=action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        details=details,
+    )
+    db.add(log)
+    db.commit()
 
 
 def require_admin(current_user: User = Depends(get_current_active_user)):
@@ -74,6 +106,15 @@ def get_analytics(
 
     sellers = db.query(User).filter(User.role == UserRole.SELLER).count()
 
+    activity_today = (
+        db.query(ActivityLog)
+        .filter(
+            ActivityLog.created_at
+            >= datetime.utcnow().replace(hour=0, minute=0, second=0)
+        )
+        .count()
+    )
+
     return {
         "total_users": total_users,
         "total_products": total_products,
@@ -82,20 +123,95 @@ def get_analytics(
         "sold_products": sold_products,
         "customers": customers,
         "sellers": sellers,
+        "activity_today": activity_today,
     }
+
+
+@router.get("/export/users.csv")
+def export_users_csv(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    users = db.query(User).order_by(User.created_at.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Phone", "Username", "Role", "Active", "Created At"])
+
+    for user in users:
+        writer.writerow(
+            [
+                user.id,
+                user.phone,
+                user.username or "",
+                user.role.value,
+                user.is_active,
+                user.created_at.isoformat() if user.created_at else "",
+            ]
+        )
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=users.csv"},
+    )
+
+
+@router.get("/export/products.csv")
+def export_products_csv(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    products = db.query(Product).order_by(Product.created_at.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        ["ID", "Title", "Price", "Status", "Approved", "Seller ID", "Created At"]
+    )
+
+    for product in products:
+        writer.writerow(
+            [
+                product.id,
+                product.title,
+                product.price,
+                product.status.value,
+                product.is_approved,
+                product.seller_id,
+                product.created_at.isoformat() if product.created_at else "",
+            ]
+        )
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=products.csv"},
+    )
 
 
 @router.get("/products/pending", response_model=List[ProductResponse])
 def get_pending_products(
+    skip: int = 0,
+    limit: int = 50,
+    search: str = None,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    products = (
-        db.query(Product)
-        .filter(Product.is_approved == False, Product.status == ProductStatus.AVAILABLE)
-        .order_by(Product.created_at.desc())
-        .all()
+    query = db.query(Product).filter(
+        Product.is_approved == False, Product.status == ProductStatus.AVAILABLE
     )
+
+    if search:
+        search_term = search.strip()
+        query = query.filter(
+            (Product.title.ilike(f"%{search_term}%"))
+            | (Product.description.ilike(f"%{search_term}%"))
+        )
+
+    products = query.order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
     return products
 
 
@@ -124,6 +240,10 @@ def approve_product(
         related_id=product.id,
     )
     db.commit()
+
+    log_activity(
+        db, admin.id, "approve", "product", product.id, f"Approved: {product.title}"
+    )
 
     return product
 
@@ -155,6 +275,10 @@ def reject_product(
     )
     db.commit()
 
+    log_activity(
+        db, admin.id, "reject", "product", product.id, f"Rejected: {product.title}"
+    )
+
     return product
 
 
@@ -162,12 +286,28 @@ def reject_product(
 def list_all_users(
     skip: int = 0,
     limit: int = 50,
+    search: str = None,
+    role: str = None,
+    is_active: bool = None,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    users = (
-        db.query(User).order_by(User.created_at.desc()).offset(skip).limit(limit).all()
-    )
+    query = db.query(User)
+
+    if search:
+        search_term = search.strip()
+        query = query.filter(
+            (User.phone.ilike(f"%{search_term}%"))
+            | (User.username.ilike(f"%{search_term}%"))
+        )
+
+    if role:
+        query = query.filter(User.role == UserRole(role))
+
+    if is_active is not None:
+        query = query.filter(User.is_active == is_active)
+
+    users = query.order_by(User.created_at.desc()).offset(skip).limit(limit).all()
     return users
 
 
@@ -374,3 +514,70 @@ def get_conversation_for_dispute(
         }
         for m in messages
     ]
+
+
+@router.post("/products/bulk")
+def bulk_product_action(
+    data: BulkActionRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    products = db.query(Product).filter(Product.id.in_(data.product_ids)).all()
+
+    approved_count = 0
+    rejected_count = 0
+
+    for product in products:
+        if data.action == "approve":
+            product.is_approved = True
+            create_notification(
+                db=db,
+                user_id=product.seller_id,
+                notification_type=NotificationType.PRODUCT_APPROVED,
+                title="Product Approved",
+                message=f'Your product "{product.title}" has been approved!',
+                related_id=product.id,
+            )
+            approved_count += 1
+        elif data.action == "reject":
+            product.status = ProductStatus.ARCHIVED
+            product.is_approved = False
+            create_notification(
+                db=db,
+                user_id=product.seller_id,
+                notification_type=NotificationType.PRODUCT_REJECTED,
+                title="Product Rejected",
+                message=f'Your product "{product.title}" has been rejected.',
+                related_id=product.id,
+            )
+            rejected_count += 1
+
+    db.commit()
+
+    return {"message": f"Approved {approved_count}, rejected {rejected_count} products"}
+
+
+@router.post("/notify")
+def send_notification(
+    data: SendNotificationRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == data.user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    create_notification(
+        db=db,
+        user_id=data.user_id,
+        notification_type=NotificationType.PRODUCT_APPROVED,
+        title=data.title,
+        message=data.message,
+    )
+    db.commit()
+
+    log_activity(db, admin.id, "notify", "user", data.user_id, f"Sent: {data.title}")
+
+    return {"message": "Notification sent"}
