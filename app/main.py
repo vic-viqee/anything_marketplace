@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
 
 Base.metadata.create_all(bind=engine)
 
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 
 try:
     inspector = inspect(engine)
@@ -57,11 +57,11 @@ try:
     if "password_version" not in columns:
         with engine.connect() as conn:
             conn.execute(
-                "ALTER TABLE users ADD COLUMN password_version INTEGER DEFAULT 1"
+                text("ALTER TABLE users ADD COLUMN password_version INTEGER DEFAULT 1")
             )
             conn.commit()
-except Exception:
-    pass
+except Exception as e:
+    print(f"Migration error (non-fatal): {e}")
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG, lifespan=lifespan)
 
