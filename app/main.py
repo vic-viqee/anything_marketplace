@@ -49,6 +49,20 @@ async def lifespan(app: FastAPI):
 
 Base.metadata.create_all(bind=engine)
 
+from sqlalchemy import inspect
+
+try:
+    inspector = inspect(engine)
+    columns = [c["name"] for c in inspector.get_columns("users")]
+    if "password_version" not in columns:
+        with engine.connect() as conn:
+            conn.execute(
+                "ALTER TABLE users ADD COLUMN password_version INTEGER DEFAULT 1"
+            )
+            conn.commit()
+except Exception:
+    pass
+
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG, lifespan=lifespan)
 
 if SLOWAPI_AVAILABLE:
