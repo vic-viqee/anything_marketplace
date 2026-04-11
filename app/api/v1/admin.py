@@ -665,3 +665,31 @@ def broadcast_notification(
     )
 
     return {"message": f"Notification sent to {count} users"}
+
+
+@router.get("/activity-logs")
+def get_activity_logs(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    logs = (
+        db.query(ActivityLog)
+        .order_by(ActivityLog.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": log.id,
+            "user_id": log.user_id,
+            "action": log.action,
+            "entity_type": log.entity_type,
+            "entity_id": log.entity_id,
+            "details": log.details,
+            "created_at": log.created_at.isoformat() if log.created_at else None,
+        }
+        for log in logs
+    ]

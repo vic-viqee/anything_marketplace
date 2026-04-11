@@ -140,6 +140,8 @@ export const adminApi = {
 
   broadcastNotification: (data: { title: string; message: string }) =>
     api.post('/api/v1/admin/notify/broadcast', data),
+
+  getActivityLogs: () => api.get('/api/v1/admin/activity-logs'),
 };
 
 export const notificationsApi = {
