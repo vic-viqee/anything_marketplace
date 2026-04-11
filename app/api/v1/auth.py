@@ -104,8 +104,9 @@ def register(request: Request, user_data: UserCreate, db: Session = Depends(get_
     db.refresh(new_user)
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    pwd_version = new_user.password_version or 1
     access_token = create_access_token(
-        data={"sub": new_user.id, "v": new_user.password_version},
+        data={"sub": new_user.id, "v": pwd_version},
         expires_delta=access_token_expires,
     )
     return TokenWithUser(

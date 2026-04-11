@@ -27,7 +27,7 @@ class User(Base):
     phone = Column(String(20), unique=True, index=True, nullable=False)
     username = Column(String(50), unique=True, index=True, nullable=True)
     hashed_password = Column(String(255), nullable=False)
-    password_version = Column(Integer, default=1)
+    password_version = Column(Integer, default=1, nullable=True)
     profile_image = Column(String(500), nullable=True)
     role = Column(SQLEnum(UserRole), default=UserRole.CUSTOMER, nullable=False)
     is_active = Column(Boolean, default=True)
