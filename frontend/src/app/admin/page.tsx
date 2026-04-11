@@ -3,9 +3,9 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/context/auth-store';
-import { adminApi } from '@/lib/api';
+import { adminApi, productsApi } from '@/lib/api';
 import { User, Product, Analytics, Rating, Ticket } from '@/types';
-import { Users, Package, Check, X, Trash2, AlertCircle, Ticket as TicketIcon, Star, Bell } from 'lucide-react';
+import { Users, Package, Check, X, Trash2, AlertCircle, Ticket as TicketIcon, Star, Bell, Search, History, Folder } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
 export const dynamic = 'force-dynamic';
@@ -19,8 +19,12 @@ function AdminContent() {
   const [users, setUsers] = useState<User[]>([]);
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'users' | 'tickets' | 'reviews' | 'broadcast'>('analytics');
+  const [userSearch, setUserSearch] = useState('');
+  const [newCategory, setNewCategory] = useState('');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'users' | 'tickets' | 'reviews' | 'broadcast' | 'activity' | 'categories'>('analytics');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [broadcastTitle, setBroadcastTitle] = useState('');
@@ -72,9 +76,54 @@ function AdminContent() {
     } catch {}
   };
 
+  const loadActivityLogs = async () => {
+    try {
+      const res = await adminApi.getActivityLogs();
+      setActivityLogs(res.data);
+    } catch {}
+  };
+
+  const loadCategories = async () => {
+    try {
+      const res = await productsApi.categories();
+      setCategories(res.data);
+    } catch {}
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategory.trim()) return;
+    setActionLoading(-3);
+    try {
+      await productsApi.createCategory({ name: newCategory, slug: newCategory.toLowerCase().replace(/\s+/g, '-') });
+      setNewCategory('');
+      loadCategories();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to create category');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUserSearch = async () => {
+    if (!userSearch.trim()) {
+      const res = await adminApi.listUsers();
+      setUsers(res.data);
+      return;
+    }
+    setActionLoading(-2);
+    try {
+      const res = await adminApi.listUsers({ search: userSearch });
+      setUsers(res.data);
+    } catch {} finally {
+      setActionLoading(null);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'reviews') loadRatings();
     if (activeTab === 'tickets') loadTickets();
+    if (activeTab === 'activity') loadActivityLogs();
+    if (activeTab === 'categories') loadCategories();
   }, [activeTab]);
 
   const handleBroadcast = async () => {
@@ -211,6 +260,8 @@ function AdminContent() {
     { id: 'tickets', label: 'Tickets', icon: TicketIcon, count: tickets.filter(t => t.status === 'open').length },
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'broadcast', label: 'Broadcast', icon: Bell },
+    { id: 'activity', label: 'Activity', icon: History },
+    { id: 'categories', label: 'Categories', icon: Folder },
   ];
 
   return (
@@ -358,46 +409,64 @@ function AdminContent() {
           )}
 
           {activeTab === 'users' && (
-            <div className="bg-card rounded-lg border border-border overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-muted border-b border-border">
-                  <tr>
-                    <th className="text-left p-4 text-sm font-medium">Phone</th>
-                    <th className="text-left p-4 text-sm font-medium">Username</th>
-                    <th className="text-left p-4 text-sm font-medium">Role</th>
-                    <th className="text-left p-4 text-sm font-medium">Status</th>
-                    <th className="text-left p-4 text-sm font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map(user => (
-                    <tr key={user.id} className="border-b border-border">
-                      <td className="p-4 text-sm">{user.phone}</td>
-                      <td className="p-4 text-sm">{user.username || '-'}</td>
-                      <td className="p-4">
-                        <select value={user.role} onChange={(e) => handleUpdateRole(user.id, e.target.value)} className="text-sm border rounded px-2 py-1">
-                          <option value="customer">Customer</option>
-                          <option value="seller">Seller</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                      </td>
-                      <td className="p-4">
-                        <span className={`text-sm ${user.is_active ? 'text-green-600' : 'text-destructive'}`}>
-                          {user.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="p-4 flex gap-2">
-                        <button onClick={() => handleDeactivate(user.id)} className="p-2 text-muted-foreground hover:bg-muted rounded">
-                          {user.is_active ? 'Deactivate' : 'Activate'}
-                        </button>
-                        <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
+            <div>
+              <div className="flex gap-2 mb-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleUserSearch()}
+                    placeholder="Search by phone or username..."
+                    className="w-full border rounded-lg pl-10 pr-3 py-2"
+                  />
+                </div>
+                <button onClick={handleUserSearch} disabled={actionLoading === -2} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50">
+                  Search
+                </button>
+              </div>
+              <div className="bg-card rounded-lg border border-border overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-muted border-b border-border">
+                    <tr>
+                      <th className="text-left p-4 text-sm font-medium">Phone</th>
+                      <th className="text-left p-4 text-sm font-medium">Username</th>
+                      <th className="text-left p-4 text-sm font-medium">Role</th>
+                      <th className="text-left p-4 text-sm font-medium">Status</th>
+                      <th className="text-left p-4 text-sm font-medium">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {users.map(user => (
+                      <tr key={user.id} className="border-b border-border">
+                        <td className="p-4 text-sm">{user.phone}</td>
+                        <td className="p-4 text-sm">{user.username || '-'}</td>
+                        <td className="p-4">
+                          <select value={user.role} onChange={(e) => handleUpdateRole(user.id, e.target.value)} className="text-sm border rounded px-2 py-1">
+                            <option value="customer">Customer</option>
+                            <option value="seller">Seller</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        </td>
+                        <td className="p-4">
+                          <span className={`text-sm ${user.is_active ? 'text-green-600' : 'text-destructive'}`}>
+                            {user.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="p-4 flex gap-2">
+                          <button onClick={() => handleDeactivate(user.id)} className="p-2 text-muted-foreground hover:bg-muted rounded">
+                            {user.is_active ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
@@ -485,6 +554,54 @@ function AdminContent() {
                   {actionLoading === -1 ? 'Sending...' : 'Send to All Users'}
                 </button>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'activity' && (
+            <div>
+              {activityLogs.length === 0 ? (
+                <div className="text-center py-20 text-muted-foreground">No activity logs</div>
+              ) : (
+                <div className="space-y-2">
+                  {activityLogs.map((log: any) => (
+                    <div key={log.id} className="bg-card p-3 rounded-lg border border-border text-sm">
+                      <span className="text-muted-foreground">{new Date(log.created_at).toLocaleString()}</span>
+                      <span className="mx-2">•</span>
+                      <span className="font-medium">{log.action}</span>
+                      <span className="text-muted-foreground mx-2">by user {log.user_id}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'categories' && (
+            <div>
+              <div className="flex gap-2 mb-6">
+                <input
+                  type="text"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateCategory()}
+                  placeholder="New category name..."
+                  className="flex-1 border rounded-lg px-3 py-2"
+                />
+                <button onClick={handleCreateCategory} disabled={actionLoading === -3} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50">
+                  Add
+                </button>
+              </div>
+              {categories.length === 0 ? (
+                <div className="text-center py-20 text-muted-foreground">No categories</div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((cat: any) => (
+                    <div key={cat.id} className="bg-card px-4 py-2 rounded-lg border border-border">
+                      <span className="text-foreground">{cat.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </>
