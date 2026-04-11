@@ -3,9 +3,6 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.core.database import engine, Base
@@ -19,6 +16,15 @@ from app.api.v1.notifications import router as notifications_router
 from app.api.v1.tickets import router as tickets_router
 from app.api.v1.websocket import router as ws_router
 from app.services.redis_service import redis_client
+
+try:
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+
+    SLOWAPI_AVAILABLE = True
+except ImportError:
+    SLOWAPI_AVAILABLE = False
 
 
 settings = get_settings()
@@ -45,10 +51,11 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG, lifespan=lifespan)
 
-limiter = Limiter(
-    key_func=get_remote_address, default_limits=[settings.RATE_LIMIT_DEFAULT]
-)
-app.state.limiter = limiter
+if SLOWAPI_AVAILABLE:
+    limiter = Limiter(
+        key_func=get_remote_address, default_limits=[settings.RATE_LIMIT_DEFAULT]
+    )
+    app.state.limiter = limiter
 
 
 @app.exception_handler(RateLimitExceeded)

@@ -23,11 +23,22 @@ import os
 import uuid
 from io import BytesIO
 from PIL import Image
-from slowapi import Limiter
-from slowapi.util import get_remote_address
+
+try:
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
+
+    SLOWAPI_AVAILABLE = True
+except ImportError:
+    SLOWAPI_AVAILABLE = False
 
 settings = get_settings()
-limiter = Limiter(key_func=get_remote_address)
+
+if SLOWAPI_AVAILABLE:
+    limiter = Limiter(key_func=get_remote_address)
+else:
+    limiter = None
+
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
@@ -60,7 +71,6 @@ class TokenWithUser(BaseModel):
 @router.post(
     "/register", response_model=TokenWithUser, status_code=status.HTTP_201_CREATED
 )
-@limiter.limit("10/minute")
 def register(request: Request, user_data: UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.phone == user_data.phone).first()
     if existing_user:
@@ -113,7 +123,6 @@ def register(request: Request, user_data: UserCreate, db: Session = Depends(get_
 
 
 @router.post("/login", response_model=Token)
-@limiter.limit("10/minute")
 def login(request: Request, user_data: UserLogin, db: Session = Depends(get_db)):
     if not user_data.phone and not user_data.username:
         raise HTTPException(
