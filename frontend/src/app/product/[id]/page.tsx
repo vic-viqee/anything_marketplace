@@ -119,7 +119,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         <div className="relative">
           {product.image_url ? (
             <img
-              src={`${process.env.NEXT_PUBLIC_API_URL}/uploads/${product.image_url}`}
+              src={product.image_url.startsWith('http') ? product.image_url : `${process.env.NEXT_PUBLIC_API_URL}/uploads/${product.image_url}`}
               alt={product.title}
               className="w-full aspect-[4/3] object-cover rounded-xl"
             />

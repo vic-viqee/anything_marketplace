@@ -6,7 +6,14 @@ import asyncio
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
-from app.models.models import User, Product, Conversation, Message, ProductStatus
+from app.models.models import (
+    User,
+    Product,
+    Conversation,
+    Message,
+    ProductStatus,
+    NotificationType,
+)
 from app.schemas.schemas import (
     ConversationCreate,
     ConversationResponse,
@@ -14,6 +21,7 @@ from app.schemas.schemas import (
     MessageResponse,
 )
 from app.services.websocket_manager import manager, create_message_payload
+from app.api.v1.notifications import create_notification
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
@@ -224,6 +232,16 @@ def send_message(
         },
     )
     asyncio.create_task(manager.send_personal_message(payload, recipient_id))
+
+    create_notification(
+        db=db,
+        user_id=recipient_id,
+        notification_type=NotificationType.NEW_MESSAGE,
+        title="New Message",
+        message=f"You have a new message from {current_user.username or current_user.phone}",
+        related_id=conversation.id,
+    )
+    db.commit()
 
     return message
 

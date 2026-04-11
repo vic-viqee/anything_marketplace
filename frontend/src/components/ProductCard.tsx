@@ -10,8 +10,10 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const imageUrl = product.image_url 
-    ? `${API_URL}/uploads/${product.image_url}`
+  const imageUrl = product.image_url
+    ? product.image_url.startsWith('http') 
+      ? product.image_url 
+      : `${API_URL}/uploads/${product.image_url}`
     : null;
 
   return (
