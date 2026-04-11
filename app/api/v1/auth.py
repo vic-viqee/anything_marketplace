@@ -104,9 +104,8 @@ def register(request: Request, user_data: UserCreate, db: Session = Depends(get_
     db.refresh(new_user)
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    pwd_version = new_user.password_version or 1
     access_token = create_access_token(
-        data={"sub": new_user.id, "v": pwd_version},
+        data={"sub": new_user.id},
         expires_delta=access_token_expires,
     )
     return TokenWithUser(
@@ -150,7 +149,7 @@ def login(request: Request, user_data: UserLogin, db: Session = Depends(get_db))
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.id, "v": user.password_version},
+        data={"sub": user.id},
         expires_delta=access_token_expires,
     )
     return {"access_token": access_token, "token_type": "bearer"}
@@ -187,7 +186,6 @@ def update_current_user(
 
     if user_data.password is not None:
         current_user.hashed_password = get_password_hash(user_data.password)
-        current_user.password_version = (current_user.password_version or 1) + 1
 
     db.commit()
     db.refresh(current_user)
