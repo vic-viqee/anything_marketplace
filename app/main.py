@@ -49,6 +49,29 @@ async def lifespan(app: FastAPI):
 
 Base.metadata.create_all(bind=engine)
 
+
+def seed_default_admin():
+    from sqlalchemy.orm import Session
+    from app.models.models import User, UserRole
+    from app.services.auth_service import get_password_hash
+
+    with Session(engine) as db:
+        admin = db.query(User).filter(User.role == UserRole.ADMIN).first()
+        if admin is None:
+            hashed = get_password_hash("admin123")
+            new_admin = User(
+                phone="254700000000",
+                username="admin",
+                hashed_password=hashed,
+                role=UserRole.ADMIN,
+            )
+            db.add(new_admin)
+            db.commit()
+            print("Default admin account created: username=admin, password=admin123")
+
+
+seed_default_admin()
+
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG, lifespan=lifespan)
 
 if SLOWAPI_AVAILABLE:
