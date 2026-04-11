@@ -132,6 +132,14 @@ This document contains the complete features overview for the Anything Marketpla
 
 ---
 
+## Known Issues
+
+- **Rate limiting**: Disabled due to slowapi incompatibility with Python 3.14 (Render default)
+- **Redis cache**: Disabled in production (free tier doesn't include Redis)
+- **Token invalidation**: Disabled (password_version column/feature temporarily removed for DB compatibility)
+
+---
+
 ## Recent Updates
 
 ### Bug Fixes (2026-04-11)
@@ -142,22 +150,39 @@ This document contains the complete features overview for the Anything Marketpla
 
 ## Planned Features
 
-### High Priority
-- Product view tracking - Allow sellers to see view counts
-- WhatsApp Business integration
-- Push notifications
+### Admin Enhancements (Medium)
+- Product search in Products tab
+- Activity logs UI tab (✅ Done)
+- Category management UI tab (✅ Done)
+- Bulk actions for products (approve/reject multiple)
 
-### Medium Priority
-- Multiple images per product
-- Favorites/Wishlist
-- Email notifications
+### Core Improvements (Medium)
+- Product view tracking - Allow sellers to see view counts
+- Pagination UI for feed (page numbers vs infinite scroll)
+- Better empty states and loading skeletons
+
+### Security (High)
+- Rate limiting (currently disabled - slowapi Python 3.14 issue)
+- Token invalidation on password change (password_version column)
+- Email verification
+- Password reset flow
+
+### Integration (High)
+- WhatsApp Business integration (currently just a link)
+- Push notifications
 - Shipping integration
 - Online payment support
 
-### Lower Priority
+### User Features (Medium)
+- Multiple images per product
+- Favorites/Wishlist
+- Email notifications
 - Report/Flag content
+
+### Lower Priority
 - Subscription Model - Membership/tier access
 - Email Automation - Auto-emails for events
+- Store reviews/ratings
 
 ---
 
@@ -165,8 +190,9 @@ This document contains the complete features overview for the Anything Marketpla
 
 - Products require admin approval before appearing in public feed
 - Sellers can view their products status in "My Products" page
-- In-app notifications are sent when products are approved/rejected
-- Images are auto-compressed to 1200px max, stored locally in `/uploads`
+- In-app notifications are sent when products are approved/rejected **and for new messages**
+- Images are auto-compressed to 1200px max, stored on **Cloudinary CDN**
+- Admin dashboard has 8 tabs: Analytics, Products, Users, Tickets, Reviews, Broadcast, Activity, Categories
 
 ---
 
