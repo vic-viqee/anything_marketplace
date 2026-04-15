@@ -186,7 +186,7 @@ This document contains the complete features overview for the Anything Marketpla
 ### Security (High)
 - Rate limiting (currently disabled - slowapi Python 3.14 issue)
 - ✅ Token invalidation on password change (password_version column)
-- Email verification
+- Phone verification (SMS OTP)
 - Password reset flow
 
 ### Integration (High)
@@ -194,6 +194,48 @@ This document contains the complete features overview for the Anything Marketpla
 - Push notifications
 - Shipping integration
 - Online payment support (M-Pesa STK push - planned)
+
+---
+
+## Authentication Options (Planned)
+
+### Phase 2: Phone Verification (SMS OTP)
+- Send 4-6 digit code via SMS on registration
+- User enters code to complete signup
+- **Provider**: Africa's Talking (recommended for Kenya pricing)
+- **Cost**: ~KSh 1-5 per SMS
+- Prevents fake accounts with random numbers
+
+### Phase 2: WhatsApp Authentication
+- One-time code via WhatsApp instead of SMS
+- **Pros**: Cheaper than SMS, reliable in Kenya, most users have WhatsApp
+- Can be offered as alternative to SMS OTP
+
+### Phase 3: Social Login
+| Provider | Status | Notes |
+|----------|--------|-------|
+| Google | Planned | Easy integration with NextAuth.js |
+| Apple | Planned | Good for iOS users |
+| Facebook | Later | Declining usage, privacy concerns |
+
+### Phase 4: Identity Verification
+| Method | Status | Notes |
+|--------|--------|-------|
+| eCitizen Integration | Planned | Official Kenyan ID verification |
+| National ID OCR | Planned | Scan Kenyan ID card |
+| M-Pesa Verification | Planned | Verify via existing M-Pesa number |
+
+### Passwordless Options (Future)
+| Method | Status | Notes |
+|--------|--------|-------|
+| Magic Links | Future | Email link to login |
+| Biometric Auth | Future | Fingerprint/Face ID |
+
+### Why Phone Verification Matters
+1. **Trust**: Confirms user has access to the number
+2. **Contact**: Can reach users for transactions
+3. **Fraud Prevention**: Makes fake accounts harder
+4. **M-Pesa Ready**: Phone number needed for payments
 
 ### User Features (Medium)
 - Multiple images per product
