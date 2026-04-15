@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.core.database import engine, Base
+from sqlalchemy import text
 from app.api.v1.auth import router as auth_router
 from app.api.v1.products import router as products_router
 from app.api.v1.chat import router as chat_router
@@ -33,6 +34,75 @@ settings = get_settings()
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
 
+def run_migrations():
+    """Add missing columns to existing tables."""
+    migrations = [
+        ("users", "subscription_tier", "VARCHAR(20) DEFAULT 'free'"),
+        ("users", "subscription_started_at", "TIMESTAMP WITH TIME ZONE"),
+        ("users", "subscription_expires_at", "TIMESTAMP WITH TIME ZONE"),
+        ("users", "featured_listings_used_this_month", "INTEGER DEFAULT 0"),
+        ("users", "featured_listings_reset_at", "TIMESTAMP WITH TIME ZONE"),
+        ("users", "kyc_status", "VARCHAR(20) DEFAULT 'none'"),
+        ("users", "kyc_id_number", "VARCHAR(50)"),
+        ("users", "kyc_id_front_url", "VARCHAR(500)"),
+        ("users", "kyc_selfie_url", "VARCHAR(500)"),
+        ("users", "kyc_submitted_at", "TIMESTAMP WITH TIME ZONE"),
+        ("users", "kyc_reviewed_at", "TIMESTAMP WITH TIME ZONE"),
+        ("users", "kyc_rejection_reason", "TEXT"),
+        ("users", "is_suspended", "BOOLEAN DEFAULT FALSE"),
+        ("users", "suspension_reason", "TEXT"),
+        ("products", "is_featured", "BOOLEAN DEFAULT FALSE"),
+        ("products", "featured_until", "TIMESTAMP WITH TIME ZONE"),
+        ("products", "featured_by_admin", "BOOLEAN DEFAULT FALSE"),
+    ]
+
+    try:
+        with engine.connect() as conn:
+            for table, column, col_type in migrations:
+                try:
+                    result = conn.execute(
+                        text(f"""
+                        SELECT column_name FROM information_schema.columns 
+                        WHERE table_name = '{table}' AND column_name = '{column}'
+                    """)
+                    )
+                    if result.fetchone() is None:
+                        conn.execute(
+                            text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+                        )
+                        print(f"Migration: Added column {column} to {table}")
+                except Exception as e:
+                    print(f"Migration error for {column}: {e}")
+
+            # Create reports table
+            result = conn.execute(
+                text(
+                    "SELECT table_name FROM information_schema.tables WHERE table_name = 'reports'"
+                )
+            )
+            if result.fetchone() is None:
+                conn.execute(
+                    text("""
+                    CREATE TABLE reports (
+                        id SERIAL PRIMARY KEY,
+                        reporter_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                        reported_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                        reported_product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+                        reason VARCHAR(50) NOT NULL,
+                        description TEXT,
+                        status VARCHAR(20) DEFAULT 'pending',
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                        updated_at TIMESTAMP WITH TIME ZONE
+                    )
+                """)
+                )
+                print("Migration: Created reports table")
+
+            conn.commit()
+    except Exception as e:
+        print(f"Migration error: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -42,6 +112,11 @@ async def lifespan(app: FastAPI):
 
     try:
         Base.metadata.create_all(bind=engine)
+    except Exception:
+        pass
+
+    try:
+        run_migrations()
     except Exception:
         pass
 
