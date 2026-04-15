@@ -53,9 +53,11 @@ export default function Register() {
   };
 
   const handleTierContinue = () => {
+    console.log('handleTierContinue called, tier:', subscriptionTier);
     if (subscriptionTier !== 'free') {
       setStep(3);
     } else {
+      console.log('Calling handleRegister');
       handleRegister();
     }
   };
@@ -69,12 +71,14 @@ export default function Register() {
   };
 
   const handleRegister = async () => {
+    console.log('handleRegister called, role:', role, 'tier:', subscriptionTier);
     setError('');
     setLoading(true);
 
     try {
       const res = await authApi.register({ phone, username, password, role, subscription_tier: subscriptionTier });
-      const { access_token } = res.data;
+      console.log('Registration successful:', res.data);
+      const { access_token, user } = res.data;
 
       localStorage.setItem('access_token', access_token);
 
@@ -86,15 +90,10 @@ export default function Register() {
         }
       }
 
-      const meRes = await authApi.me();
-      setAuth(meRes.data, access_token);
-
-      if (role === 'seller' && subscriptionTier !== 'free') {
-        router.push('/');
-      } else {
-        router.push('/');
-      }
+      setAuth(user, access_token);
+      router.push('/');
     } catch (err) {
+      console.error('Registration failed:', err);
       const e = err as ApiError;
       setError(e.response?.data?.detail || 'Registration failed');
       setLoading(false);
@@ -214,7 +213,7 @@ export default function Register() {
             </div>
 
             <div className="flex gap-4">
-              <button onClick={handleTierContinue} disabled={loading} className="flex-1 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
+              <button type="button" onClick={handleTierContinue} disabled={loading} className="flex-1 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
                 {loading ? 'Processing...' : subscriptionTier === 'free' ? 'Continue with Free' : 'Contact Admin'}
               </button>
             </div>
