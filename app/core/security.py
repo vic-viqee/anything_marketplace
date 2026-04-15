@@ -21,13 +21,27 @@ def get_current_user(
     if payload is None:
         raise credentials_exception
 
-    user_id: int = payload.get("sub")
-    if user_id is None:
+    user_id_str = payload.get("sub")
+    if user_id_str is None:
         raise credentials_exception
+
+    try:
+        user_id = int(user_id_str)
+    except (ValueError, TypeError):
+        raise credentials_exception
+
+    token_version = payload.get("password_version")
 
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exception
+
+    if user.password_version != (token_version or 1):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired. Please login again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     return user
 

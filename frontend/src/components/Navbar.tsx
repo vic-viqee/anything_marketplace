@@ -13,7 +13,7 @@ export default function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
-  const { isAuthenticated, setAuth, logout, user, isSeller, isAdmin } = useAuthStore();
+  const { isAuthenticated, setAuth, logout, isSeller, isAdmin } = useAuthStore();
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
@@ -26,13 +26,14 @@ export default function Navbar() {
   }, [isAuthenticated, setAuth, logout]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      notificationsApi.unreadCount()
-        .then(res => setUnreadCount(res.data.unread_count))
-        .catch(() => {});
-    } else {
+    if (!isAuthenticated) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUnreadCount(0);
+      return;
     }
+    notificationsApi.unreadCount()
+      .then(res => setUnreadCount(res.data.unread_count))
+      .catch(() => {});
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -46,9 +47,8 @@ export default function Navbar() {
   }, [isMenuOpen]);
 
   useEffect(() => {
-    if (isMenuOpen) {
-      setIsMenuOpen(false);
-    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMenuOpen(false);
   }, [pathname]);
 
   const navLinks = [
@@ -62,7 +62,7 @@ export default function Navbar() {
 
   const authLinks = isAuthenticated
     ? [
-        ...(isSeller ? [{ href: '/messages', label: 'Messages', icon: MessageCircle }] : []),
+        { href: '/messages', label: 'Messages', icon: MessageCircle },
         { href: '/notifications', label: 'Notifications', icon: Bell, badge: unreadCount },
         ...(isAdmin ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),
         { href: '/profile', label: 'Profile', icon: User },

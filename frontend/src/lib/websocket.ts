@@ -15,8 +15,24 @@ export function useWebSocket(
   const [connected, setConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const onMessageRef = useRef(onMessage);
+  const reconnectFnRef = useRef<(() => void) | null>(null);
 
-  const connect = useCallback(() => {
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
+
+  const disconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    wsRef.current?.close();
+    wsRef.current = null;
+    setConnected(false);
+  }, []);
+
+  const reconnect = useCallback(() => {
     if (!token || typeof window === 'undefined') return;
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -37,7 +53,7 @@ export function useWebSocket(
         try {
           const message = JSON.parse(event.data) as WebSocketMessage;
           setLastMessage(message);
-          onMessage?.(message);
+          onMessageRef.current?.(message);
         } catch {
           // Ignore parse errors
         }
@@ -45,8 +61,11 @@ export function useWebSocket(
 
       wsRef.current.onclose = () => {
         setConnected(false);
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
         reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
+          reconnectFnRef.current?.();
         }, 3000);
       };
 
@@ -56,39 +75,31 @@ export function useWebSocket(
     } catch {
       // Ignore connection errors
     }
-  }, [token, onMessage]);
-
-  const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    wsRef.current?.close();
-    wsRef.current = null;
-    setConnected(false);
-  }, []);
-
-  const send = useCallback((data: WebSocketMessage) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(data));
-    }
-  }, []);
-
-  const ping = useCallback(() => {
-    send({ type: 'ping', data: {} });
-  }, [send]);
+  }, [token]);
 
   useEffect(() => {
-    connect();
+    reconnectFnRef.current = reconnect;
+  }, [reconnect]);
+
+  useEffect(() => {
+    reconnect();
     return () => disconnect();
-  }, [connect, disconnect]);
+  }, [reconnect, disconnect]);
 
   return {
     connected,
     lastMessage,
-    send,
-    ping,
+    send: (data: WebSocketMessage) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(data));
+      }
+    },
+    ping: () => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'ping', data: {} }));
+      }
+    },
     disconnect,
-    reconnect: connect,
+    reconnect,
   };
 }

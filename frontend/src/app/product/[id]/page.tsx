@@ -4,7 +4,8 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { productsApi, chatApi } from '@/lib/api';
 import { useAuthStore } from '@/context/auth-store';
-import { ArrowLeft, MessageCircle, CheckCircle, Clock, MapPin, Phone, Star, MessageSquare } from 'lucide-react';
+import { ApiError } from '@/types';
+import { ArrowLeft, MessageCircle, Clock, Star, MessageSquare } from 'lucide-react';
 
 interface ProductDetail {
   id: number;
@@ -40,17 +41,24 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const { isAuthenticated, user } = useAuthStore();
 
   useEffect(() => {
-    productsApi.get(Number(id))
-      .then(res => setProduct(res.data))
+    const productId = Number(id);
+    productsApi.get(productId)
+      .then(res => {
+        setProduct(res.data);
+        return res.data.seller?.id;
+      })
+      .then(sellerId => {
+        if (sellerId) {
+          return productsApi.getUserRatings(sellerId);
+        }
+        return null;
+      })
+      .then(res => {
+        if (res) setRatingStats(res.data);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
-
-    if (product?.seller?.id) {
-      productsApi.getUserRatings(product.seller.id)
-        .then(res => setRatingStats(res.data))
-        .catch(() => {});
-    }
-  }, [id, product?.seller?.id]);
+  }, [id]);
 
   if (loading) {
     return (
@@ -96,9 +104,12 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         receiver_id: product.seller.id,
       });
       router.push(`/messages?conversation=${res.data.id}`);
-    } catch (err: any) {
-      if (err.response?.status === 400) {
+    } catch (err) {
+      const e = err as ApiError;
+      if (e.response?.status === 400) {
         router.push('/messages');
+      } else {
+        alert('Could not start conversation. Please try again.');
       }
     } finally {
       setSendingMessage(false);
@@ -210,10 +221,10 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                   <MessageCircle className="w-5 h-5" />
                   {sendingMessage ? 'Starting...' : 'Message Seller'}
                 </button>
-                
+
                 {product.seller?.phone && (
                   <a
-                    href={`https://wa.me/${product.seller.phone.replace('+', '')}?text=Hi, I'm interested in your "${product.title}" listed for KES ${product.price.toLocaleString()}`}
+                    href={`https://wa.me/${product.seller.phone.replace('+', '')}?text=Hi, I\'m interested in your "${product.title}" listed for KES ${product.price.toLocaleString()}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full py-3 bg-green-500 text-white rounded-full font-medium hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
@@ -222,12 +233,12 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                     WhatsApp
                   </a>
                 )}
+
+                <p className="text-center text-xs text-muted-foreground">
+                  Pay on delivery - inspect the item before paying
+                </p>
               </>
             )}
-            
-            <p className="text-center text-sm text-muted-foreground">
-              Payment on delivery - meet the seller and pay when you receive the item
-            </p>
           </div>
 
           <div className="text-xs text-muted-foreground">

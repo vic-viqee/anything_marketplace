@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ApiError } from '@/types';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/context/auth-store';
 import PasswordInput from '@/components/PasswordInput';
@@ -33,8 +34,9 @@ export default function Login() {
       setAuth(meRes.data, access_token);
       
       router.push('/');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Login failed');
     } finally {
       setLoading(false);
     }

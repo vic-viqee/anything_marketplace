@@ -16,6 +16,7 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     password: Optional[str] = Field(None, min_length=6, max_length=100)
+    current_password: Optional[str] = None
     profile_image: Optional[str] = None
 
 

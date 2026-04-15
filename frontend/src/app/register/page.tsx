@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ApiError } from '@/types';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/context/auth-store';
 import PhoneInput from '@/components/PhoneInput';
@@ -45,8 +46,9 @@ export default function Register() {
       setAuth(meRes.data, access_token);
       
       router.push('/');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Registration failed');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Registration failed');
     } finally {
       setLoading(false);
     }

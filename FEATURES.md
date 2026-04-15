@@ -26,7 +26,7 @@ This document contains the complete features overview for the Anything Marketpla
 ## What's Built (MVP v2)
 
 ### Core Features
-- Product feed with category filters (paginated, Redis-cached)
+- Product feed with category filters (paginated, conditionally cached in Redis)
 - Product search (title/description)
 - Post ads with images (auto-compressed to 1200px, stored on **Cloudinary CDN**)
 - Product approval system (admin moderates before live)
@@ -38,11 +38,12 @@ This document contains the complete features overview for the Anything Marketpla
 - Dark/light mode theming
 
 ### Security Features
-- JWT token invalidation on password change
-- Rate limiting on auth endpoints
+- JWT token invalidation on password change (via password_version)
+- Current password verification required to change password
 - File size validation (10MB max)
 - CORS configuration
 - Input validation (Pydantic)
+- Storage abstraction (local/S3/Cloudinary via STORAGE_TYPE env var)
 
 ### Admin Features
 - Analytics dashboard (pie + bar charts)
@@ -136,7 +137,6 @@ This document contains the complete features overview for the Anything Marketpla
 
 - **Rate limiting**: Disabled due to slowapi incompatibility with Python 3.14 (Render default)
 - **Redis cache**: Disabled in production (free tier doesn't include Redis)
-- **Token invalidation**: Disabled (password_version column/feature temporarily removed for DB compatibility)
 
 ---
 

@@ -57,7 +57,14 @@ def list_tickets(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    query = db.query(Ticket).order_by(Ticket.created_at.desc())
+    if current_user.role.value == "admin":
+        query = db.query(Ticket).order_by(Ticket.created_at.desc())
+    else:
+        query = (
+            db.query(Ticket)
+            .filter(Ticket.user_id == current_user.id)
+            .order_by(Ticket.created_at.desc())
+        )
 
     if status:
         query = query.filter(Ticket.status == status)

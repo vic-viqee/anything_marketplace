@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/context/auth-store';
 import { authApi } from '@/lib/api';
+import { ApiError } from '@/types';
 import { LogOut, User, Settings, Camera } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -67,8 +68,9 @@ export default function Profile() {
       if (token) {
         setAuth(res.data, token);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to upload image');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to upload image');
     } finally {
       setUploadingImage(false);
     }
@@ -87,8 +89,9 @@ export default function Profile() {
       if (token) {
         setAuth(res.data, token);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update profile');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -98,6 +101,11 @@ export default function Profile() {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (!currentPassword) {
+      setError('Please enter your current password');
+      return;
+    }
 
     if (newPassword !== confirmPassword) {
       setError('New passwords do not match');
@@ -111,13 +119,14 @@ export default function Profile() {
 
     setLoading(true);
     try {
-      await authApi.updateMe({ password: newPassword });
+      await authApi.updateMe({ password: newPassword, current_password: currentPassword });
       setSuccess('Password updated successfully');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update password');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { detail?: string } } };
+      setError(axiosErr.response?.data?.detail || 'Failed to update password');
     } finally {
       setLoading(false);
     }

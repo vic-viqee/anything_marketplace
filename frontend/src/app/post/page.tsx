@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { productsApi } from '@/lib/api';
 import { useAuthStore } from '@/context/auth-store';
-import { Category } from '@/types';
+import { Category, ApiError } from '@/types';
 import { Upload, X } from 'lucide-react';
 
 export default function PostAd() {
@@ -16,6 +16,7 @@ export default function PostAd() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -55,19 +56,60 @@ export default function PostAd() {
       if (image) formData.append('image', image);
 
       await productsApi.create(formData);
-      router.push('/my-products');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create listing');
+      setSubmitted(true);
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to create listing');
     } finally {
       setLoading(false);
     }
   };
+
+  if (submitted) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-6">
+          <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 className="font-serif text-2xl text-foreground mb-2">Ad Posted!</h2>
+        <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+          Your listing has been submitted. It will appear in the marketplace once an admin reviews and approves it.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            onClick={() => router.push('/my-products')}
+            className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors"
+          >
+            View My Products
+          </button>
+          <button
+            onClick={() => { setTitle(''); setDescription(''); setPrice(''); setCategoryId(''); setImage(null); setImagePreview(null); setSubmitted(false); }}
+            className="px-6 py-3 border border-input text-foreground rounded-full font-medium hover:bg-muted transition-colors"
+          >
+            Post Another
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="font-serif text-3xl text-foreground">Post an Ad</h1>
         <p className="mt-2 text-muted-foreground">List your item for sale</p>
+      </div>
+
+      <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl text-sm text-blue-800 dark:text-blue-300">
+        <p className="font-medium mb-1">What happens next?</p>
+        <ul className="space-y-1">
+          <li>1. Your ad is submitted for review</li>
+          <li>2. An admin will approve it (usually within 24 hours)</li>
+          <li>3. Once approved, your listing appears in the marketplace</li>
+          <li>4. You&apos;ll receive a notification when it goes live</li>
+        </ul>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

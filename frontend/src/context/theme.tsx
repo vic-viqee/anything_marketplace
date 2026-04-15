@@ -16,11 +16,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const stored = localStorage.getItem('theme') as Theme | null;
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const initialTheme = stored || (prefersDark ? 'dark' : 'light');
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration pattern
     setTheme(initialTheme);
+    setMounted(true);
     document.documentElement.classList.toggle('dark', initialTheme === 'dark');
   }, []);
 

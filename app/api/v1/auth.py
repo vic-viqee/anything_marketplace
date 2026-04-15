@@ -18,8 +18,8 @@ from app.services.auth_service import (
     get_password_hash,
     create_access_token,
 )
+from app.services.storage_service import storage_service
 from app.core.config import get_settings
-import os
 import uuid
 from io import BytesIO
 from PIL import Image
@@ -105,7 +105,7 @@ def register(request: Request, user_data: UserCreate, db: Session = Depends(get_
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": new_user.id},
+        data={"sub": new_user.id, "password_version": new_user.password_version},
         expires_delta=access_token_expires,
     )
     return TokenWithUser(
@@ -149,7 +149,7 @@ def login(request: Request, user_data: UserLogin, db: Session = Depends(get_db))
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.id},
+        data={"sub": user.id, "password_version": user.password_version},
         expires_delta=access_token_expires,
     )
     return {"access_token": access_token, "token_type": "bearer"}
@@ -185,7 +185,20 @@ def update_current_user(
         current_user.username = user_data.username
 
     if user_data.password is not None:
+        if not user_data.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is required to change password",
+            )
+        if not verify_password(
+            user_data.current_password, current_user.hashed_password
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
         current_user.hashed_password = get_password_hash(user_data.password)
+        current_user.password_version = current_user.password_version + 1
 
     db.commit()
     db.refresh(current_user)
@@ -240,18 +253,18 @@ async def upload_profile_image(
         )
 
     if current_user.profile_image:
-        old_path = os.path.join(settings.UPLOAD_DIR, current_user.profile_image)
-        if os.path.exists(old_path):
-            os.remove(old_path)
-
-    filename = f"profile_{current_user.id}_{uuid.uuid4()}.jpg"
-    filepath = os.path.join(settings.UPLOAD_DIR, filename)
+        old_key = current_user.profile_image
+        if old_key.startswith("/uploads/"):
+            old_key = old_key.replace("/uploads/", "")
+        try:
+            storage_service.delete(old_key)
+        except Exception:
+            pass
 
     image_content = compress_image_bytes(content)
-    with open(filepath, "wb") as f:
-        f.write(image_content)
-
-    current_user.profile_image = filename
+    filename = f"profile_{current_user.id}_{uuid.uuid4()}.jpg"
+    saved_key = storage_service.save(image_content, filename)
+    current_user.profile_image = storage_service.get_url(saved_key)
     db.commit()
     db.refresh(current_user)
     return current_user

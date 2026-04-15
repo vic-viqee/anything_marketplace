@@ -65,7 +65,7 @@ function MessagesContent() {
       return;
     }
     loadConversations();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, router]);
 
   useEffect(() => {
     const conversationId = searchParams.get('conversation');

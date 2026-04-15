@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
-import os
 import uuid
 import json
 from io import BytesIO
@@ -22,6 +21,7 @@ from app.schemas.schemas import (
     CategoryResponse,
 )
 from app.services.redis_service import redis_client
+from app.services.storage_service import storage_service
 
 settings = get_settings()
 router = APIRouter(prefix="/api/v1/products", tags=["products"])
@@ -47,7 +47,7 @@ def compress_image(file: UploadFile, max_width: int = 1200, quality: int = 80) -
     return output.getvalue()
 
 
-async def save_image(file: UploadFile) -> str:
+async def save_image(file: UploadFile) -> Optional[str]:
     if file:
         file_ext = (
             file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
@@ -66,14 +66,11 @@ async def save_image(file: UploadFile) -> str:
                 detail=f"File too large. Max size: {settings.MAX_UPLOAD_SIZE // (1024 * 1024)}MB",
             )
 
-        filename = f"{uuid.uuid4()}.jpg"
-        filepath = os.path.join(settings.UPLOAD_DIR, filename)
-
         image_content = compress_image(file)
-        with open(filepath, "wb") as f:
-            f.write(image_content)
+        filename = f"{uuid.uuid4()}.jpg"
 
-        return filename
+        saved_key = storage_service.save(image_content, filename)
+        return storage_service.get_url(saved_key)
     return None
 
 
@@ -359,9 +356,13 @@ async def update_product(
         product.category_id = category_id
     if image:
         if product.image_url:
-            old_path = os.path.join(settings.UPLOAD_DIR, product.image_url)
-            if os.path.exists(old_path):
-                os.remove(old_path)
+            old_key = product.image_url
+            if old_key.startswith("/uploads/"):
+                old_key = old_key.replace("/uploads/", "")
+            try:
+                storage_service.delete(old_key)
+            except Exception:
+                pass
         product.image_url = await save_image(image)
 
     product.updated_at = datetime.utcnow()
@@ -389,9 +390,13 @@ def delete_product(
         )
 
     if product.image_url:
-        filepath = os.path.join(settings.UPLOAD_DIR, product.image_url)
-        if os.path.exists(filepath):
-            os.remove(filepath)
+        image_key = product.image_url
+        if image_key.startswith("/uploads/"):
+            image_key = image_key.replace("/uploads/", "")
+        try:
+            storage_service.delete(image_key)
+        except Exception:
+            pass
 
     db.delete(product)
     db.commit()

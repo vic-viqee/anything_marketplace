@@ -19,6 +19,7 @@ export default function Home() {
   useEffect(() => {
     loadProducts(1);
     loadCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: loadProducts is stable
   }, []);
 
   const loadProducts = async (pageNum: number, searchTerm?: string) => {

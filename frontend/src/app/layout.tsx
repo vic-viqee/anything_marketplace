@@ -4,7 +4,7 @@ import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
 
 const libreBaskerville = Libre_Baskerville({
-  variable: "--font-sans",
+  variable: "--font-sans-var",
   subsets: ["latin"],
   weight: ["400", "700"],
 });

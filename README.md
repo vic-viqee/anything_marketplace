@@ -214,22 +214,23 @@ NEXT_PUBLIC_API_URL=https://your-backend.onrender.com
 - Images are automatically compressed on upload (max 1200px width for products, 400px for profiles)
 - Converted to JPEG for consistent format and smaller file sizes
 - Local development: stored in `/uploads` directory
-- Production: uploaded to Cloudinary CDN
+- Production: uploaded to Cloudinary CDN (set STORAGE_TYPE=cloudinary)
 
 ### Authentication
 - JWT-based authentication with 60-minute token expiry
 - Login accepts either phone number or username
 - Secure password hashing with bcrypt
-- Token invalidation on password change (via password_version)
+- Token invalidation on password change (password_version increments, invalidates old tokens)
 
 ### Caching
 - Product feed is cached in Redis (5-minute TTL)
 - Reduces database load for frequently accessed endpoints
 
 ### Security
-- Rate limiting on auth endpoints (10/minute) and default endpoints (100/minute)
+- Token invalidation on password change
 - File size validation (10MB max)
 - CORS restricted to configured origins
+- Current password required to change password
 
 ### Theming
 - Light/dark mode toggle in navbar

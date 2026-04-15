@@ -39,6 +39,16 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception:
+        pass
+
+    try:
+        seed_default_admin()
+    except Exception:
+        pass
+
     yield
 
     try:
@@ -47,10 +57,9 @@ async def lifespan(app: FastAPI):
         pass
 
 
-Base.metadata.create_all(bind=engine)
-
-
 def seed_default_admin():
+    if not settings.CREATE_ADMIN:
+        return
     from sqlalchemy.orm import Session
     from app.models.models import User, UserRole
     from app.services.auth_service import get_password_hash
@@ -58,19 +67,17 @@ def seed_default_admin():
     with Session(engine) as db:
         admin = db.query(User).filter(User.role == UserRole.ADMIN).first()
         if admin is None:
-            hashed = get_password_hash("admin123")
+            hashed = get_password_hash(settings.ADMIN_PASSWORD)
             new_admin = User(
-                phone="254700000000",
+                phone=settings.ADMIN_PHONE,
                 username="admin",
                 hashed_password=hashed,
                 role=UserRole.ADMIN,
             )
             db.add(new_admin)
             db.commit()
-            print("Default admin account created: username=admin, password=admin123")
+            print("Default admin account created")
 
-
-seed_default_admin()
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG, lifespan=lifespan)
 

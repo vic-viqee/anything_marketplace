@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH: str = "10/minute"
     RATE_LIMIT_ADMIN: str = "200/minute"
 
+    CREATE_ADMIN: bool = False
+    ADMIN_PHONE: str = "254700000000"
+    ADMIN_PASSWORD: str = "admin123"
+
     class Config:
         env_file = ".env"
         extra = "ignore"

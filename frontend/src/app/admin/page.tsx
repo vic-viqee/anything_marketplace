@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/context/auth-store';
 import { adminApi, productsApi } from '@/lib/api';
-import { User, Product, Analytics, Rating, Ticket } from '@/types';
+import { User, Product, Analytics, Rating, Ticket, ActivityLog, Category, AdminTab, ApiError } from '@/types';
 import { Users, Package, Check, X, Trash2, AlertCircle, Ticket as TicketIcon, Star, Bell, Search, History, Folder } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
@@ -19,8 +19,8 @@ function AdminContent() {
   const [users, setUsers] = useState<User[]>([]);
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [activityLogs, setActivityLogs] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [userSearch, setUserSearch] = useState('');
   const [newCategory, setNewCategory] = useState('');
@@ -36,12 +36,12 @@ function AdminContent() {
       return;
     }
     loadData();
-  }, [isAuthenticated, isAdmin]);
+  }, [isAuthenticated, isAdmin, router]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab) {
-      setActiveTab(tab as any);
+      setActiveTab(tab as AdminTab);
     }
   }, [searchParams]);
 
@@ -97,8 +97,9 @@ function AdminContent() {
       await productsApi.createCategory({ name: newCategory, slug: newCategory.toLowerCase().replace(/\s+/g, '-') });
       setNewCategory('');
       loadCategories();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create category');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to create category');
     } finally {
       setActionLoading(null);
     }
@@ -137,8 +138,9 @@ function AdminContent() {
       setBroadcastTitle('');
       setBroadcastMessage('');
       alert('Broadcast sent!');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to send');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to send');
     } finally {
       setActionLoading(null);
     }
@@ -150,8 +152,9 @@ function AdminContent() {
     try {
       await adminApi.approveProduct(productId);
       setPendingProducts(prev => prev.filter(p => p.id !== productId));
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to approve product');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to approve product');
     } finally {
       setActionLoading(null);
     }
@@ -163,8 +166,9 @@ function AdminContent() {
     try {
       await adminApi.rejectProduct(productId);
       setPendingProducts(prev => prev.filter(p => p.id !== productId));
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to reject product');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to reject product');
     } finally {
       setActionLoading(null);
     }
@@ -177,8 +181,9 @@ function AdminContent() {
     try {
       await adminApi.deleteProduct(productId);
       setPendingProducts(prev => prev.filter(p => p.id !== productId));
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete product');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to delete product');
     } finally {
       setActionLoading(null);
     }
@@ -190,8 +195,9 @@ function AdminContent() {
     try {
       await adminApi.updateUserRole(userId, role);
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, role } : u));
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update role');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to update role');
     } finally {
       setActionLoading(null);
     }
@@ -203,8 +209,9 @@ function AdminContent() {
     try {
       await adminApi.deactivateUser(userId);
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active: !u.is_active } : u));
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update user status');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to update user status');
     } finally {
       setActionLoading(null);
     }
@@ -217,8 +224,9 @@ function AdminContent() {
     try {
       await adminApi.deleteUser(userId);
       setUsers(prev => prev.filter(u => u.id !== userId));
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete user');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to delete user');
     } finally {
       setActionLoading(null);
     }
@@ -231,8 +239,9 @@ function AdminContent() {
     try {
       await adminApi.deleteRating(ratingId);
       setRatings(prev => prev.filter(r => r.id !== ratingId));
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete rating');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to delete rating');
     } finally {
       setActionLoading(null);
     }
@@ -244,8 +253,9 @@ function AdminContent() {
     try {
       await adminApi.updateTicketStatus(ticketId, status);
       setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status } : t));
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update ticket');
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to update ticket');
     } finally {
       setActionLoading(null);
     }
@@ -253,7 +263,7 @@ function AdminContent() {
 
   if (!isAdmin) return null;
 
-  const tabs = [
+  const tabs: Array<{ id: AdminTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number }> = [
     { id: 'analytics', label: 'Analytics', icon: AlertCircle },
     { id: 'products', label: 'Products', icon: Package },
     { id: 'users', label: 'Users', icon: Users },
@@ -283,7 +293,7 @@ function AdminContent() {
         {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 pb-3 px-2 text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === tab.id
                 ? 'text-foreground border-b-2 border-primary'
@@ -336,11 +346,11 @@ function AdminContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="bg-card p-6 rounded-lg border border-border">
                   <h3 className="text-lg font-medium mb-4">Products by Category</h3>
-                  {(analytics as any).products_by_category?.length > 0 ? (
+                  {analytics.products_by_category && analytics.products_by_category.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
                       <PieChart>
-                        <Pie data={(analytics as any).products_by_category} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                          {((analytics as any).products_by_category || []).map((_: any, i: number) => (
+                        <Pie data={analytics.products_by_category} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                          {(analytics.products_by_category || []).map((_, i: number) => (
                             <Cell key={i} fill={['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'][i % 5]} />
                           ))}
                         </Pie>
@@ -353,7 +363,7 @@ function AdminContent() {
                 <div className="bg-card p-6 rounded-lg border border-border">
                   <h3 className="text-lg font-medium mb-4">Users by Role</h3>
                   <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={(analytics as any).users_over_time || []}>
+                    <BarChart data={analytics.users_over_time || []}>
                       <XAxis dataKey="name" />
                       <YAxis />
                       <Tooltip />
@@ -563,7 +573,7 @@ function AdminContent() {
                 <div className="text-center py-20 text-muted-foreground">No activity logs</div>
               ) : (
                 <div className="space-y-2">
-                  {activityLogs.map((log: any) => (
+                  {activityLogs.map((log: ActivityLog) => (
                     <div key={log.id} className="bg-card p-3 rounded-lg border border-border text-sm">
                       <span className="text-muted-foreground">{new Date(log.created_at).toLocaleString()}</span>
                       <span className="mx-2">•</span>
@@ -595,7 +605,7 @@ function AdminContent() {
                 <div className="text-center py-20 text-muted-foreground">No categories</div>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  {categories.map((cat: any) => (
+                  {categories.map((cat: Category) => (
                     <div key={cat.id} className="bg-card px-4 py-2 rounded-lg border border-border">
                       <span className="text-foreground">{cat.name}</span>
                     </div>

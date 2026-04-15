@@ -96,8 +96,8 @@ export interface Analytics {
   customers: number;
   sellers: number;
   activity_today?: number;
-  products_by_category?: { name: string; count: number }[];
-  users_over_time?: { name: string; count: number }[];
+  products_by_category?: Array<{ name: string; count: number }>;
+  users_over_time?: Array<{ name: string; count: number }>;
 }
 
 export interface Notification {
@@ -113,10 +113,32 @@ export interface Notification {
 export interface Ticket {
   id: number;
   user_id: number;
+  reported_user_id?: number;
+  product_id?: number;
   ticket_type: string;
   description: string;
   status: string;
-  priority: string;
   created_at: string;
-  updated_at: string | null;
+  updated_at?: string;
 }
+
+export interface ApiError {
+  response?: {
+    status?: number;
+    data?: {
+      detail?: string;
+    };
+  };
+}
+
+export interface ActivityLog {
+  id: number;
+  user_id: number;
+  action: string;
+  entity_type: string;
+  entity_id: number;
+  details: string | null;
+  created_at: string;
+}
+
+export type AdminTab = 'analytics' | 'products' | 'users' | 'tickets' | 'reviews' | 'broadcast' | 'activity' | 'categories';

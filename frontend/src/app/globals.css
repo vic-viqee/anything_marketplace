@@ -35,8 +35,8 @@
   --sidebar-accent-foreground: oklch(0.2558 0.0433 268.0662);
   --sidebar-border: oklch(0.7791 0.0156 251.1926);
   --sidebar-ring: oklch(0.8567 0.1164 81.0092);
-  --font-sans: Libre Baskerville, serif;
-  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-sans: var(--font-sans-var, ui-sans-serif, system-ui, sans-serif);
+  --font-serif: var(--font-serif-var, ui-serif, Georgia, serif);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --radius: 0.5rem;
   --shadow-x: 0;
@@ -90,8 +90,8 @@
   --sidebar-accent-foreground: oklch(0.2703 0.0407 281.3036);
   --sidebar-border: oklch(0.3072 0.0287 281.7681);
   --sidebar-ring: oklch(0.9097 0.1440 95.1120);
-  --font-sans: Libre Baskerville, serif;
-  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-sans: var(--font-sans-var, ui-sans-serif, system-ui, sans-serif);
+  --font-serif: var(--font-serif-var, ui-serif, Georgia, serif);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --radius: 0.5rem;
   --shadow-x: 0;

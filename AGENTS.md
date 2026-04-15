@@ -347,6 +347,11 @@ RATE_LIMIT_AUTH=10/minute
 
 # Storage
 STORAGE_TYPE=local
+
+# Admin seeding (only creates admin on first run if enabled)
+CREATE_ADMIN=false
+ADMIN_PHONE=254700000000
+ADMIN_PASSWORD=admin123
 ```
 
 ### Backend (.env) - Production (Render)
@@ -359,6 +364,8 @@ SECRET_KEY=random_32_char_string
 DEBUG=false
 CORS_ORIGINS=["https://anything-marketplace-web.onrender.com"]
 REDIS_HOST=
+STORAGE_TYPE=cloudinary
+CREATE_ADMIN=false
 ```
 
 ### Frontend (.env.local) - Local Development
