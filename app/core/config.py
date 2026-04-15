@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+import json
 
 
 class Settings(BaseSettings):
@@ -21,12 +22,7 @@ class Settings(BaseSettings):
     MAX_IMAGE_WIDTH: int = 1200
     MAX_PROFILE_WIDTH: int = 400
 
-    CORS_ORIGINS: list[str] = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://anything-marketplace-web.onrender.com",
-        "https://*.onrender.com",
-    ]
+    CORS_ORIGINS: str = '["http://localhost:3000","http://127.0.0.1:3000"]'
 
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_DEFAULT: str = "100/minute"
@@ -40,6 +36,13 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         extra = "ignore"
+
+    @property
+    def parsed_cors_origins(self) -> list[str]:
+        try:
+            return json.loads(self.CORS_ORIGINS)
+        except (json.JSONDecodeError, TypeError):
+            return ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 
 @lru_cache()
