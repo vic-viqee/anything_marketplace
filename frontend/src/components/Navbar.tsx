@@ -76,9 +76,7 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold tracking-tight text-foreground">
-              Anything
-            </span>
+            <img src="/anything_logo.png" alt="Anything Marketplace" className="h-8 w-auto" />
           </Link>
 
           <div className="hidden md:flex items-center gap-6">

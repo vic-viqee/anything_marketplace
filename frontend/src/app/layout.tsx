@@ -11,7 +11,12 @@ const libreBaskerville = Libre_Baskerville({
 
 export const metadata: Metadata = {
   title: "Anything Marketplace",
-  description: "P2P Marketplace for anything",
+  description: "P2P Marketplace for buying and selling anything",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({
