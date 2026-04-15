@@ -53,11 +53,9 @@ export default function Register() {
   };
 
   const handleTierContinue = () => {
-    console.log('handleTierContinue called, tier:', subscriptionTier);
     if (subscriptionTier !== 'free') {
       setStep(3);
     } else {
-      console.log('Calling handleRegister');
       handleRegister();
     }
   };
@@ -71,13 +69,11 @@ export default function Register() {
   };
 
   const handleRegister = async () => {
-    console.log('handleRegister called, role:', role, 'tier:', subscriptionTier);
     setError('');
     setLoading(true);
 
     try {
       const res = await authApi.register({ phone, username, password, role, subscription_tier: subscriptionTier });
-      console.log('Registration successful:', res.data);
       const { access_token, user } = res.data;
 
       localStorage.setItem('access_token', access_token);
@@ -92,10 +88,10 @@ export default function Register() {
 
       setAuth(user, access_token);
       router.push('/');
-    } catch (err) {
-      console.error('Registration failed:', err);
-      const e = err as ApiError;
-      setError(e.response?.data?.detail || 'Registration failed');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } }; message?: string };
+      const errorMsg = e.response?.data?.detail || e.message || 'Registration failed';
+      setError(errorMsg);
       setLoading(false);
     }
   };
@@ -171,6 +167,11 @@ export default function Register() {
             </button>
 
             <div className="space-y-4">
+              {error && (
+                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+                  {error}
+                </div>
+              )}
               {SUBSCRIPTION_TIERS.map((tier) => (
                 <div
                   key={tier.tier}
