@@ -4,7 +4,14 @@ export interface User {
   username: string | null;
   role: string;
   is_active: boolean;
+  is_suspended: boolean;
   profile_image: string | null;
+  subscription_tier: string;
+  subscription_expires_at?: string;
+  kyc_status: string;
+  is_verified: boolean;
+  featured_listings_used: number;
+  featured_listings_limit: number;
   created_at: string;
 }
 
@@ -16,6 +23,7 @@ export interface Product {
   image_url: string | null;
   status: string;
   is_approved: boolean;
+  is_featured: boolean;
   seller_id: number;
   category_id: number | null;
   created_at: string;
@@ -30,8 +38,30 @@ export interface ProductListItem {
   image_url: string | null;
   status: string;
   is_approved: boolean;
+  is_featured: boolean;
+  seller_id?: number;
+  seller_username?: string;
+  seller_is_verified: boolean;
   created_at: string;
 }
+
+export type SubscriptionTier = 'free' | 'basic' | 'standard' | 'premium';
+
+export interface SubscriptionTierInfo {
+  tier: SubscriptionTier;
+  name: string;
+  price: number;
+  featuredLimit: number;
+  hasVerifiedBadge: boolean;
+  hasContactAdmin: boolean;
+}
+
+export const SUBSCRIPTION_TIERS: SubscriptionTierInfo[] = [
+  { tier: 'free', name: 'Free', price: 0, featuredLimit: 2, hasVerifiedBadge: false, hasContactAdmin: false },
+  { tier: 'basic', name: 'Basic', price: 200, featuredLimit: 5, hasVerifiedBadge: false, hasContactAdmin: true },
+  { tier: 'standard', name: 'Standard', price: 500, featuredLimit: 15, hasVerifiedBadge: true, hasContactAdmin: true },
+  { tier: 'premium', name: 'Premium', price: 1000, featuredLimit: -1, hasVerifiedBadge: true, hasContactAdmin: true },
+];
 
 export interface Category {
   id: number;
@@ -122,6 +152,42 @@ export interface Ticket {
   updated_at?: string;
 }
 
+export interface Report {
+  id: number;
+  reporter_id: number;
+  reported_user_id?: number;
+  reported_product_id?: number;
+  reported_conversation_id?: number;
+  reason: string;
+  description?: string;
+  status: string;
+  admin_notes?: string;
+  created_at: string;
+  resolved_at?: string;
+}
+
+export interface KYCSubmission {
+  id: number;
+  phone: string;
+  username: string | null;
+  role: string;
+  kyc_id_number?: string;
+  kyc_id_front_url?: string;
+  kyc_selfie_url?: string;
+  kyc_submitted_at?: string;
+}
+
+export interface Subscription {
+  id: number;
+  phone: string;
+  username: string | null;
+  subscription_tier: string;
+  subscription_started_at?: string;
+  subscription_expires_at?: string;
+  featured_listings_used: number;
+  is_verified: boolean;
+}
+
 export interface ApiError {
   response?: {
     status?: number;
@@ -141,4 +207,15 @@ export interface ActivityLog {
   created_at: string;
 }
 
-export type AdminTab = 'analytics' | 'products' | 'users' | 'tickets' | 'reviews' | 'broadcast' | 'activity' | 'categories';
+export type AdminTab = 'analytics' | 'products' | 'users' | 'kyc' | 'subscriptions' | 'reports' | 'tickets' | 'reviews' | 'broadcast' | 'activity' | 'categories';
+
+export type ReportReason = 'fake_product' | 'scam' | 'harassment' | 'wrong_category' | 'spam' | 'other';
+
+export const REPORT_REASONS: { value: ReportReason; label: string }[] = [
+  { value: 'fake_product', label: 'Fake/Defective Product' },
+  { value: 'scam', label: 'Scam' },
+  { value: 'harassment', label: 'Harassment' },
+  { value: 'wrong_category', label: 'Wrong Category' },
+  { value: 'spam', label: 'Spam' },
+  { value: 'other', label: 'Other' },
+];

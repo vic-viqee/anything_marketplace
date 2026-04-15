@@ -20,7 +20,7 @@ api.interceptors.request.use((config) => {
 });
 
 export const authApi = {
-  register: (data: { phone: string; username?: string; password: string; role?: string }) =>
+  register: (data: { phone: string; username?: string; password: string; role?: string; subscription_tier?: string }) =>
     api.post('/api/v1/auth/register', data),
   
   login: (data: { phone?: string; username?: string; password: string }) =>
@@ -35,6 +35,15 @@ export const authApi = {
     const formData = new FormData();
     formData.append('file', file);
     return api.post('/api/v1/auth/me/profile-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  
+  uploadKYC: (idFront: File, selfie: File) => {
+    const formData = new FormData();
+    formData.append('id_front', idFront);
+    formData.append('selfie', selfie);
+    return api.post('/api/v1/auth/me/kyc', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
@@ -69,6 +78,10 @@ export const productsApi = {
   markSold: (id: number) => api.post(`/api/v1/products/${id}/mark-sold`),
   
   myProducts: () => api.get('/api/v1/products/my-products'),
+  
+  featureProduct: (id: number) => api.post(`/api/v1/products/${id}/feature`),
+  
+  unfeatureProduct: (id: number) => api.delete(`/api/v1/products/${id}/feature`),
 
   createRating: (id: number, data: { rated_user_id: number; product_id: number; stars: number; comment?: string }) =>
     api.post(`/api/v1/products/${id}/ratings`, data),
@@ -142,6 +155,29 @@ export const adminApi = {
     api.post('/api/v1/admin/notify/broadcast', data),
 
   getActivityLogs: () => api.get('/api/v1/admin/activity-logs'),
+  
+  getPendingKYC: () => api.get('/api/v1/admin/kyc/pending'),
+  
+  approveKYC: (userId: number) => api.post(`/api/v1/admin/kyc/${userId}/approve`),
+  
+  rejectKYC: (userId: number, reason: string) => api.post(`/api/v1/admin/kyc/${userId}/reject?reason=${encodeURIComponent(reason)}`),
+  
+  updateSubscription: (userId: number, tier: string, durationDays: number) =>
+    api.patch(`/api/v1/admin/users/${userId}/subscription?tier=${tier}&duration_days=${durationDays}`),
+  
+  suspendUser: (userId: number, reason: string) =>
+    api.post(`/api/v1/admin/users/${userId}/suspend?reason=${encodeURIComponent(reason)}`),
+  
+  unsuspendUser: (userId: number) => api.post(`/api/v1/admin/users/${userId}/unsuspend`),
+  
+  getSubscriptions: (params?: { skip?: number; limit?: number; tier?: string }) =>
+    api.get('/api/v1/admin/subscriptions', { params }),
+  
+  getReports: (params?: { skip?: number; limit?: number; status_filter?: string }) =>
+    api.get('/api/v1/admin/reports', { params }),
+  
+  updateReport: (reportId: number, status: string, adminNotes?: string) =>
+    api.patch(`/api/v1/admin/reports/${reportId}`, { status, admin_notes: adminNotes }),
 };
 
 export const notificationsApi = {
@@ -155,7 +191,7 @@ export const notificationsApi = {
 };
 
 export const ticketsApi = {
-  create: (data: { ticket_type: string; description: string; reported_user_id?: number; product_id?: number }) =>
+  create: (data: { ticket_type: string; description: string; reported_user_id?: number; product_id?: number; subscription_tier?: string }) =>
     api.post('/api/v1/tickets', data),
   
   list: () => api.get('/api/v1/tickets'),
@@ -163,6 +199,11 @@ export const ticketsApi = {
   myTickets: () => api.get('/api/v1/tickets/my-tickets'),
   
   get: (ticketId: number) => api.get(`/api/v1/tickets/${ticketId}`),
+};
+
+export const reportsApi = {
+  create: (data: { reported_user_id?: number; reported_product_id?: number; reported_conversation_id?: number; reason: string; description?: string }) =>
+    api.post('/api/v1/reports', data),
 };
 
 export default api;

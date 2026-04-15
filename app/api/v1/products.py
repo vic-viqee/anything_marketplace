@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import json
 from io import BytesIO
@@ -22,9 +22,16 @@ from app.schemas.schemas import (
 )
 from app.services.redis_service import redis_client
 from app.services.storage_service import storage_service
+from app.api.v1.auth import is_verified_seller, get_featured_limit
 
 settings = get_settings()
 router = APIRouter(prefix="/api/v1/products", tags=["products"])
+
+FEATURED_DURATION_DAYS = 7
+
+
+def get_seller_verified_status(seller: User) -> bool:
+    return is_verified_seller(seller)
 
 
 def compress_image(file: UploadFile, max_width: int = 1200, quality: int = 80) -> bytes:
@@ -156,8 +163,14 @@ def list_products(
     search: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    query = db.query(Product).filter(
-        Product.status == ProductStatus.AVAILABLE, Product.is_approved == True
+    query = (
+        db.query(Product)
+        .join(User)
+        .filter(
+            Product.status == ProductStatus.AVAILABLE,
+            Product.is_approved == True,
+            User.is_suspended == False,
+        )
     )
 
     if category_id:
@@ -170,7 +183,16 @@ def list_products(
             | Product.description.ilike(f"%{search_term}%")
         )
 
-    products = query.order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
+    products = (
+        query.order_by(
+            Product.is_featured.desc(),
+            Product.featured_until.desc().nullslast(),
+            Product.created_at.desc(),
+        )
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return products
 
 
@@ -205,8 +227,14 @@ def latest_feed(
         return json.loads(cached)
 
     skip = (page - 1) * page_size
-    query = db.query(Product).filter(
-        Product.status == ProductStatus.AVAILABLE, Product.is_approved == True
+    query = (
+        db.query(Product)
+        .join(User)
+        .filter(
+            Product.status == ProductStatus.AVAILABLE,
+            Product.is_approved == True,
+            User.is_suspended == False,
+        )
     )
 
     if category_id:
@@ -220,7 +248,14 @@ def latest_feed(
         )
 
     products = (
-        query.order_by(Product.created_at.desc()).offset(skip).limit(page_size).all()
+        query.order_by(
+            Product.is_featured.desc(),
+            Product.featured_until.desc().nullslast(),
+            Product.created_at.desc(),
+        )
+        .offset(skip)
+        .limit(page_size)
+        .all()
     )
 
     result = [
@@ -231,6 +266,11 @@ def latest_feed(
             "image_url": p.image_url,
             "status": p.status.value,
             "is_approved": p.is_approved,
+            "is_featured": p.is_featured
+            and (not p.featured_until or p.featured_until > datetime.utcnow()),
+            "seller_id": p.seller_id,
+            "seller_username": p.seller.username,
+            "seller_is_verified": get_seller_verified_status(p.seller),
             "created_at": p.created_at.isoformat(),
         }
         for p in products
@@ -401,3 +441,78 @@ def delete_product(
     db.delete(product)
     db.commit()
     return None
+
+
+@router.post("/{product_id}/feature")
+def feature_product(
+    product_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
+        )
+
+    if product.seller_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized",
+        )
+
+    if current_user.is_suspended:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account suspended",
+        )
+
+    limit = get_featured_limit(current_user.subscription_tier)
+    if limit == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Featured listings not available on your plan",
+        )
+
+    used = current_user.featured_listings_used_this_month or 0
+    if limit > 0 and used >= limit:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"You have used all {limit} featured listings this month. Upgrade your plan for more.",
+        )
+
+    product.is_featured = True
+    product.featured_until = datetime.utcnow() + timedelta(days=FEATURED_DURATION_DAYS)
+    product.featured_by_admin = False
+
+    if limit > 0:
+        current_user.featured_listings_used_this_month = used + 1
+
+    db.commit()
+    return {"message": "Product featured successfully"}
+
+
+@router.delete("/{product_id}/feature")
+def unfeature_product(
+    product_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
+        )
+
+    if product.seller_id != current_user.id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized",
+        )
+
+    product.is_featured = False
+    product.featured_until = None
+    product.featured_by_admin = False
+
+    db.commit()
+    return {"message": "Product unfeatured"}

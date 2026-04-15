@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from datetime import timedelta
 from pydantic import BaseModel
 from typing import Optional
@@ -42,6 +43,25 @@ else:
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
+SUBSCRIPTION_LIMITS = {
+    "free": 2,
+    "basic": 5,
+    "standard": 15,
+    "premium": -1,
+}
+
+
+def get_featured_limit(tier: str) -> int:
+    return SUBSCRIPTION_LIMITS.get(tier, 2)
+
+
+def is_verified_seller(user: User) -> bool:
+    return user.kyc_status == "approved" and user.subscription_tier in [
+        "standard",
+        "premium",
+    ]
+
+
 def compress_image_bytes(content: bytes, max_width: int = 400) -> bytes:
     image = Image.open(BytesIO(content))
     if image.mode == "RGBA":
@@ -68,6 +88,27 @@ class TokenWithUser(BaseModel):
     user: UserResponse
 
 
+def user_to_response(user: User) -> UserResponse:
+    from datetime import datetime
+
+    return UserResponse(
+        id=user.id,
+        phone=user.phone,
+        username=user.username,
+        role=user.role.value,
+        is_active=user.is_active,
+        is_suspended=user.is_suspended,
+        profile_image=user.profile_image,
+        subscription_tier=user.subscription_tier,
+        subscription_expires_at=user.subscription_expires_at,
+        kyc_status=user.kyc_status,
+        is_verified=is_verified_seller(user),
+        featured_listings_used=user.featured_listings_used_this_month or 0,
+        featured_listings_limit=get_featured_limit(user.subscription_tier),
+        created_at=user.created_at,
+    )
+
+
 @router.post(
     "/register", response_model=TokenWithUser, status_code=status.HTTP_201_CREATED
 )
@@ -92,12 +133,17 @@ def register(request: Request, user_data: UserCreate, db: Session = Depends(get_
     if user_data.role == "seller":
         role = UserRole.SELLER
 
+    tier = user_data.subscription_tier or "free"
+    if tier not in SUBSCRIPTION_LIMITS:
+        tier = "free"
+
     hashed_password = get_password_hash(user_data.password)
     new_user = User(
         phone=user_data.phone,
         username=user_data.username,
         hashed_password=hashed_password,
         role=role,
+        subscription_tier=tier,
     )
     db.add(new_user)
     db.commit()
@@ -111,14 +157,7 @@ def register(request: Request, user_data: UserCreate, db: Session = Depends(get_
     return TokenWithUser(
         access_token=access_token,
         token_type="bearer",
-        user=UserResponse(
-            id=new_user.id,
-            phone=new_user.phone,
-            username=new_user.username,
-            role=new_user.role.value,
-            is_active=new_user.is_active,
-            created_at=new_user.created_at,
-        ),
+        user=user_to_response(new_user),
     )
 
 
@@ -157,7 +196,7 @@ def login(request: Request, user_data: UserLogin, db: Session = Depends(get_db))
 
 @router.get("/me", response_model=UserResponse)
 def read_current_user(current_user: User = Depends(get_current_active_user)):
-    return current_user
+    return user_to_response(current_user)
 
 
 class UserUpdate(BaseModel):
@@ -202,7 +241,7 @@ def update_current_user(
 
     db.commit()
     db.refresh(current_user)
-    return current_user
+    return user_to_response(current_user)
 
 
 def compress_image(file: UploadFile, max_width: int = 400, quality: int = 85) -> bytes:
@@ -267,4 +306,60 @@ async def upload_profile_image(
     current_user.profile_image = storage_service.get_url(saved_key)
     db.commit()
     db.refresh(current_user)
-    return current_user
+    return user_to_response(current_user)
+
+
+@router.post("/me/kyc", response_model=UserResponse)
+async def upload_kyc(
+    id_front: UploadFile = File(...),
+    selfie: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.role.value != "seller":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only sellers can submit KYC",
+        )
+
+    if current_user.kyc_status == "approved":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="KYC already approved",
+        )
+
+    for file, field_name in [(id_front, "ID document"), (selfie, "selfie")]:
+        file_ext = (
+            file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
+        )
+        if file_ext not in ["jpg", "jpeg", "png"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file type for {field_name}",
+            )
+
+        content = await file.read()
+        if len(content) > settings.MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"{field_name} too large",
+            )
+
+    id_content = await id_front.read()
+    id_filename = f"kyc_id_{current_user.id}_{uuid.uuid4()}.jpg"
+    id_saved = storage_service.save(compress_image_bytes(id_content), id_filename)
+    current_user.kyc_id_front_url = storage_service.get_url(id_saved)
+
+    selfie_content = await selfie.read()
+    selfie_filename = f"kyc_selfie_{current_user.id}_{uuid.uuid4()}.jpg"
+    selfie_saved = storage_service.save(
+        compress_image_bytes(selfie_content), selfie_filename
+    )
+    current_user.kyc_selfie_url = storage_service.get_url(selfie_saved)
+
+    current_user.kyc_status = "submitted"
+    current_user.kyc_submitted_at = func.now()
+
+    db.commit()
+    db.refresh(current_user)
+    return user_to_response(current_user)

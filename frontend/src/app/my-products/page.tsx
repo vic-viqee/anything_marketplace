@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { productsApi } from '@/lib/api';
 import { useAuthStore } from '@/context/auth-store';
-import { Clock, CheckCircle, ArrowLeft, Package } from 'lucide-react';
+import { Clock, CheckCircle, ArrowLeft, Package, Star, Crown, Zap, Shield } from 'lucide-react';
 
 interface MyProduct {
   id: number;
@@ -13,6 +13,8 @@ interface MyProduct {
   image_url: string | null;
   status: string;
   is_approved: boolean;
+  is_featured: boolean;
+  featured_until: string | null;
   created_at: string;
 }
 
@@ -20,8 +22,21 @@ export default function MyProducts() {
   const [products, setProducts] = useState<MyProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingSold, setMarkingSold] = useState<number | null>(null);
+  const [togglingFeatured, setTogglingFeatured] = useState<number | null>(null);
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
+
+  const tierLimits: Record<string, { featured: number; name: string; icon: React.ReactNode }> = {
+    free: { featured: 0, name: 'Free', icon: <Shield className="w-4 h-4" /> },
+    basic: { featured: 1, name: 'Basic', icon: <Zap className="w-4 h-4" /> },
+    standard: { featured: 3, name: 'Standard', icon: <Star className="w-4 h-4" /> },
+    premium: { featured: 5, name: 'Premium', icon: <Crown className="w-4 h-4" /> },
+  };
+
+  const currentTier = user?.subscription_tier || 'free';
+  const tierConfig = tierLimits[currentTier] || tierLimits.free;
+  const usedFeatured = products.filter(p => p.is_featured).length;
+  const canFeature = currentTier !== 'free' && usedFeatured < tierConfig.featured;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -55,6 +70,42 @@ export default function MyProducts() {
     }
   };
 
+  const handleToggleFeatured = async (productId: number, currentlyFeatured: boolean) => {
+    if (currentlyFeatured) {
+      if (!confirm('Remove this listing from featured?')) return;
+      setTogglingFeatured(productId);
+      try {
+        await productsApi.unfeatureProduct(productId);
+        setProducts(prev => prev.map(p =>
+          p.id === productId ? { ...p, is_featured: false, featured_until: null } : p
+        ));
+      } catch {
+        alert('Failed to remove featured status');
+      } finally {
+        setTogglingFeatured(null);
+      }
+    } else {
+      if (!canFeature) {
+        alert(`Your ${tierConfig.name} plan allows ${tierConfig.featured} featured listings. Upgrade to feature more.`);
+        return;
+      }
+      if (!confirm('Feature this listing? It will appear at the top of the feed for 7 days.')) return;
+      setTogglingFeatured(productId);
+      try {
+        await productsApi.featureProduct(productId);
+        const featuredUntil = new Date();
+        featuredUntil.setDate(featuredUntil.getDate() + 7);
+        setProducts(prev => prev.map(p =>
+          p.id === productId ? { ...p, is_featured: true, featured_until: featuredUntil.toISOString() } : p
+        ));
+      } catch {
+        alert('Failed to feature listing');
+      } finally {
+        setTogglingFeatured(null);
+      }
+    }
+  };
+
   if (!isAuthenticated || user?.role === 'customer') {
     return null;
   }
@@ -75,6 +126,30 @@ export default function MyProducts() {
         <div>
           <h1 className="font-serif text-3xl text-foreground">My Products</h1>
           <p className="mt-1 text-muted-foreground">Manage your listings and check approval status</p>
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-border rounded-xl p-4 mb-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${currentTier === 'premium' ? 'bg-amber-500/20 text-amber-500' : currentTier === 'standard' ? 'bg-blue-500/20 text-blue-500' : currentTier === 'basic' ? 'bg-orange-500/20 text-orange-500' : 'bg-muted text-muted-foreground'}`}>
+              {tierConfig.icon}
+            </div>
+            <div>
+              <p className="font-medium text-foreground">{tierConfig.name} Plan</p>
+              <p className="text-xs text-muted-foreground">
+                {usedFeatured}/{tierConfig.featured} featured listings used
+              </p>
+            </div>
+          </div>
+          {currentTier !== 'premium' && (
+            <button
+              onClick={() => router.push('/profile?tab=subscription')}
+              className="text-sm px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Upgrade Plan
+            </button>
+          )}
         </div>
       </div>
 
@@ -117,7 +192,7 @@ export default function MyProducts() {
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {approved.map(product => (
-                  <ProductCard key={product.id} product={product} onMarkSold={handleMarkSold} markingSold={markingSold} />
+                  <ProductCard key={product.id} product={product} onMarkSold={handleMarkSold} markingSold={markingSold} onToggleFeatured={handleToggleFeatured} togglingFeatured={togglingFeatured} />
                 ))}
               </div>
             </section>
@@ -141,11 +216,13 @@ export default function MyProducts() {
   );
 }
 
-function ProductCard({ product, onMarkSold, markingSold, sold }: {
+function ProductCard({ product, onMarkSold, markingSold, sold, onToggleFeatured, togglingFeatured }: {
   product: MyProduct;
   onMarkSold?: (id: number) => void;
   markingSold?: number | null;
   sold?: boolean;
+  onToggleFeatured?: (id: number, current: boolean) => void;
+  togglingFeatured?: number | null;
 }) {
   const router = useRouter();
   const [imgError, setImgError] = useState(false);
@@ -176,6 +253,12 @@ function ProductCard({ product, onMarkSold, markingSold, sold }: {
             <span className="px-3 py-1 bg-destructive text-white text-sm font-medium rounded-full">Sold</span>
           </div>
         )}
+        {product.is_featured && !sold && (
+          <div className="absolute top-2 left-2 px-2 py-1 bg-amber-500 text-white text-xs font-semibold rounded-full flex items-center gap-1">
+            <Star className="w-3 h-3 fill-current" />
+            Featured
+          </div>
+        )}
       </div>
       <div className="p-4">
         <h3 className="font-medium text-foreground truncate">{product.title}</h3>
@@ -187,6 +270,20 @@ function ProductCard({ product, onMarkSold, markingSold, sold }: {
             className="mt-2 w-full py-2 text-sm border border-input rounded-lg text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
           >
             {markingSold === product.id ? 'Marking...' : 'Mark as Sold'}
+          </button>
+        )}
+        {!sold && onToggleFeatured && product.is_approved && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleFeatured(product.id, product.is_featured); }}
+            disabled={togglingFeatured === product.id}
+            className={`mt-2 w-full py-2 text-sm border rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
+              product.is_featured
+                ? 'border-amber-500 text-amber-500 hover:bg-amber-500/10'
+                : 'border-input text-muted-foreground hover:border-amber-500 hover:text-amber-500'
+            }`}
+          >
+            <Star className={`w-4 h-4 ${product.is_featured ? 'fill-current' : ''}`} />
+            {togglingFeatured === product.id ? 'Updating...' : product.is_featured ? 'Remove Featured' : 'Feature'}
           </button>
         )}
         <p className="mt-2 text-xs text-muted-foreground">

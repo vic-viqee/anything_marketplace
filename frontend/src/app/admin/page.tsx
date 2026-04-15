@@ -4,8 +4,8 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/context/auth-store';
 import { adminApi, productsApi } from '@/lib/api';
-import { User, Product, Analytics, Rating, Ticket, ActivityLog, Category, AdminTab, ApiError } from '@/types';
-import { Users, Package, Check, X, Trash2, AlertCircle, Ticket as TicketIcon, Star, Bell, Search, History, Folder } from 'lucide-react';
+import { User, Product, Analytics, Rating, Ticket, ActivityLog, Category, AdminTab, ApiError, KYCSubmission, Subscription, Report } from '@/types';
+import { Users, Package, Check, X, Trash2, AlertCircle, Ticket as TicketIcon, Star, Bell, Search, History, Folder, CreditCard, Flag, FileCheck } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
 export const dynamic = 'force-dynamic';
@@ -21,10 +21,13 @@ function AdminContent() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [kycSubmissions, setKycSubmissions] = useState<KYCSubmission[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [userSearch, setUserSearch] = useState('');
   const [newCategory, setNewCategory] = useState('');
-  const [activeTab, setActiveTab] = useState<'analytics' | 'products' | 'users' | 'tickets' | 'reviews' | 'broadcast' | 'activity' | 'categories'>('analytics');
+  const [activeTab, setActiveTab] = useState<AdminTab>('analytics');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [broadcastTitle, setBroadcastTitle] = useState('');
@@ -90,6 +93,76 @@ function AdminContent() {
     } catch {}
   };
 
+  const loadKYCSubmissions = async () => {
+    try {
+      const res = await adminApi.getPendingKYC();
+      setKycSubmissions(res.data);
+    } catch {}
+  };
+
+  const loadSubscriptions = async (tier?: string) => {
+    try {
+      const res = await adminApi.getSubscriptions({ tier });
+      setSubscriptions(res.data);
+    } catch {}
+  };
+
+  const loadReports = async (status?: string) => {
+    try {
+      const res = await adminApi.getReports({ status_filter: status });
+      setReports(res.data);
+    } catch {}
+  };
+
+  const handleApproveKYC = async (userId: number) => {
+    setActionLoading(userId);
+    try {
+      await adminApi.approveKYC(userId);
+      loadKYCSubmissions();
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to approve KYC');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectKYC = async (userId: number, reason: string) => {
+    setActionLoading(userId);
+    try {
+      await adminApi.rejectKYC(userId, reason);
+      loadKYCSubmissions();
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to reject KYC');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUpdateSubscription = async (userId: number, tier: string) => {
+    setActionLoading(userId);
+    try {
+      await adminApi.updateSubscription(userId, tier, 30);
+      loadSubscriptions();
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to update subscription');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUpdateReport = async (reportId: number, status: string) => {
+    try {
+      await adminApi.updateReport(reportId, status);
+      loadReports();
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to update report');
+    }
+  };
+
   const handleCreateCategory = async () => {
     if (!newCategory.trim()) return;
     setActionLoading(-3);
@@ -125,6 +198,9 @@ function AdminContent() {
     if (activeTab === 'tickets') loadTickets();
     if (activeTab === 'activity') loadActivityLogs();
     if (activeTab === 'categories') loadCategories();
+    if (activeTab === 'kyc') loadKYCSubmissions();
+    if (activeTab === 'subscriptions') loadSubscriptions();
+    if (activeTab === 'reports') loadReports();
   }, [activeTab]);
 
   const handleBroadcast = async () => {
@@ -267,6 +343,9 @@ function AdminContent() {
     { id: 'analytics', label: 'Analytics', icon: AlertCircle },
     { id: 'products', label: 'Products', icon: Package },
     { id: 'users', label: 'Users', icon: Users },
+    { id: 'kyc', label: 'KYC', icon: FileCheck, count: kycSubmissions.length },
+    { id: 'subscriptions', label: 'Subscriptions', icon: CreditCard },
+    { id: 'reports', label: 'Reports', icon: Flag, count: reports.filter(r => r.status === 'open').length },
     { id: 'tickets', label: 'Tickets', icon: TicketIcon, count: tickets.filter(t => t.status === 'open').length },
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'broadcast', label: 'Broadcast', icon: Bell },
@@ -608,6 +687,138 @@ function AdminContent() {
                   {categories.map((cat: Category) => (
                     <div key={cat.id} className="bg-card px-4 py-2 rounded-lg border border-border">
                       <span className="text-foreground">{cat.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'kyc' && (
+            <div>
+              <h2 className="text-xl font-medium mb-4">KYC Submissions</h2>
+              {kycSubmissions.length === 0 ? (
+                <div className="text-center py-20 text-muted-foreground">No pending KYC submissions</div>
+              ) : (
+                <div className="space-y-4">
+                  {kycSubmissions.map((kyc) => (
+                    <div key={kyc.id} className="bg-card p-4 rounded-lg border border-border">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium">@{kyc.username || kyc.phone}</p>
+                          <p className="text-sm text-muted-foreground">ID: {kyc.kyc_id_number || 'Not provided'}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          {kyc.kyc_id_front_url && (
+                            <a href={kyc.kyc_id_front_url} target="_blank" rel="noopener noreferrer" className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded">View ID</a>
+                          )}
+                          {kyc.kyc_selfie_url && (
+                            <a href={kyc.kyc_selfie_url} target="_blank" rel="noopener noreferrer" className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded">View Selfie</a>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleApproveKYC(kyc.id)} disabled={actionLoading === kyc.id} className="px-4 py-2 bg-green-500 text-white rounded-lg disabled:opacity-50">
+                          Approve
+                        </button>
+                        <button onClick={() => { const reason = prompt('Rejection reason:'); if (reason) handleRejectKYC(kyc.id, reason); }} disabled={actionLoading === kyc.id} className="px-4 py-2 bg-red-500 text-white rounded-lg disabled:opacity-50">
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'subscriptions' && (
+            <div>
+              <h2 className="text-xl font-medium mb-4">Subscriptions</h2>
+              <div className="mb-4">
+                <select onChange={(e) => loadSubscriptions(e.target.value || undefined)} className="border rounded-lg px-3 py-2">
+                  <option value="">All Tiers</option>
+                  <option value="free">Free</option>
+                  <option value="basic">Basic</option>
+                  <option value="standard">Standard</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </div>
+              {subscriptions.length === 0 ? (
+                <div className="text-center py-20 text-muted-foreground">No subscriptions found</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">User</th>
+                        <th className="text-left p-2">Tier</th>
+                        <th className="text-left p-2">Featured Used</th>
+                        <th className="text-left p-2">Verified</th>
+                        <th className="text-left p-2">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subscriptions.map((sub) => (
+                        <tr key={sub.id} className="border-b">
+                          <td className="p-2">@{sub.username || sub.phone}</td>
+                          <td className="p-2">
+                            <select value={sub.subscription_tier} onChange={(e) => handleUpdateSubscription(sub.id, e.target.value)} className="border rounded px-2 py-1">
+                              <option value="free">Free</option>
+                              <option value="basic">Basic</option>
+                              <option value="standard">Standard</option>
+                              <option value="premium">Premium</option>
+                            </select>
+                          </td>
+                          <td className="p-2">{sub.featured_listings_used}</td>
+                          <td className="p-2">{sub.is_verified ? '✓' : '—'}</td>
+                          <td className="p-2">
+                            {sub.is_verified ? (
+                              <button onClick={() => handleUpdateSubscription(sub.id, 'free')} className="text-xs text-red-500">Revoke</button>
+                            ) : (
+                              <button onClick={() => handleUpdateSubscription(sub.id, 'standard')} className="text-xs text-green-500">Verify</button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'reports' && (
+            <div>
+              <h2 className="text-xl font-medium mb-4">User Reports</h2>
+              <div className="mb-4">
+                <select onChange={(e) => loadReports(e.target.value || undefined)} className="border rounded-lg px-3 py-2">
+                  <option value="">All Status</option>
+                  <option value="open">Open</option>
+                  <option value="investigating">Investigating</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="dismissed">Dismissed</option>
+                </select>
+              </div>
+              {reports.length === 0 ? (
+                <div className="text-center py-20 text-muted-foreground">No reports</div>
+              ) : (
+                <div className="space-y-4">
+                  {reports.map((report) => (
+                    <div key={report.id} className="bg-card p-4 rounded-lg border border-border">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="inline-block px-2 py-1 text-xs rounded-full bg-red-100 text-red-700 mr-2">{report.reason}</span>
+                          <span className="inline-block px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">{report.status}</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">{new Date(report.created_at).toLocaleDateString()}</span>
+                      </div>
+                      {report.description && <p className="mt-2 text-sm">{report.description}</p>}
+                      <div className="mt-3 flex gap-2">
+                        <button onClick={() => handleUpdateReport(report.id, 'investigating')} className="px-3 py-1 text-xs bg-yellow-500 text-white rounded">Investigate</button>
+                        <button onClick={() => handleUpdateReport(report.id, 'resolved')} className="px-3 py-1 text-xs bg-green-500 text-white rounded">Resolve</button>
+                        <button onClick={() => handleUpdateReport(report.id, 'dismissed')} className="px-3 py-1 text-xs bg-gray-500 text-white rounded">Dismiss</button>
+                      </div>
                     </div>
                   ))}
                 </div>

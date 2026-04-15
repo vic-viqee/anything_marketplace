@@ -14,6 +14,7 @@ from app.api.v1.ratings import router as ratings_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.tickets import router as tickets_router
+from app.api.v1.reports import router as reports_router
 from app.api.v1.websocket import router as ws_router
 from app.services.redis_service import redis_client
 
@@ -114,6 +115,7 @@ app.include_router(ratings_router)
 app.include_router(admin_router)
 app.include_router(notifications_router)
 app.include_router(tickets_router)
+app.include_router(reports_router)
 app.include_router(ws_router)
 
 

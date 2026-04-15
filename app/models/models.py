@@ -20,6 +20,20 @@ class UserRole(str, enum.Enum):
     ADMIN = "admin"
 
 
+class SubscriptionTier(str, enum.Enum):
+    FREE = "free"
+    BASIC = "basic"
+    STANDARD = "standard"
+    PREMIUM = "premium"
+
+
+class KYCStatus(str, enum.Enum):
+    NONE = "none"
+    SUBMITTED = "submitted"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -31,6 +45,27 @@ class User(Base):
     profile_image = Column(String(500), nullable=True)
     role = Column(SQLEnum(UserRole), default=UserRole.CUSTOMER, nullable=False)
     is_active = Column(Boolean, default=True)
+
+    # Subscription fields
+    subscription_tier = Column(String(20), default=SubscriptionTier.FREE.value)
+    subscription_started_at = Column(DateTime(timezone=True), nullable=True)
+    subscription_expires_at = Column(DateTime(timezone=True), nullable=True)
+    featured_listings_used_this_month = Column(Integer, default=0)
+    featured_listings_reset_at = Column(DateTime(timezone=True), nullable=True)
+
+    # KYC fields
+    kyc_status = Column(String(20), default=KYCStatus.NONE.value)
+    kyc_id_number = Column(String(50), nullable=True)
+    kyc_id_front_url = Column(String(500), nullable=True)
+    kyc_selfie_url = Column(String(500), nullable=True)
+    kyc_submitted_at = Column(DateTime(timezone=True), nullable=True)
+    kyc_reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    kyc_rejection_reason = Column(Text, nullable=True)
+
+    # Suspension
+    is_suspended = Column(Boolean, default=False)
+    suspension_reason = Column(Text, nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -82,6 +117,18 @@ class User(Base):
         foreign_keys="Ticket.reported_user_id",
         cascade="all, delete-orphan",
     )
+    reports_made = relationship(
+        "Report",
+        back_populates="reporter",
+        foreign_keys="Report.reporter_id",
+        cascade="all, delete-orphan",
+    )
+    reports_received = relationship(
+        "Report",
+        back_populates="reported_user",
+        foreign_keys="Report.reported_user_id",
+        cascade="all, delete-orphan",
+    )
 
 
 class Category(Base):
@@ -114,6 +161,11 @@ class Product(Base):
     )
     is_approved = Column(Boolean, default=False, nullable=False)
 
+    # Featured listings
+    is_featured = Column(Boolean, default=False)
+    featured_until = Column(DateTime(timezone=True), nullable=True)
+    featured_by_admin = Column(Boolean, default=False)
+
     seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
 
@@ -125,6 +177,9 @@ class Product(Base):
     category = relationship("Category", back_populates="products")
     conversations = relationship(
         "Conversation", back_populates="product", cascade="all, delete-orphan"
+    )
+    reports = relationship(
+        "Report", back_populates="product", cascade="all, delete-orphan"
     )
 
 
@@ -223,7 +278,24 @@ class TicketType(str, enum.Enum):
     REPORT_USER = "report_user"
     REPORT_PRODUCT = "report_product"
     DISPUTE = "dispute"
+    SUBSCRIPTION_REQUEST = "subscription_request"
     OTHER = "other"
+
+
+class ReportReason(str, enum.Enum):
+    FAKE_PRODUCT = "fake_product"
+    SCAM = "scam"
+    HARASSMENT = "harassment"
+    WRONG_CATEGORY = "wrong_category"
+    SPAM = "spam"
+    OTHER = "other"
+
+
+class ReportStatus(str, enum.Enum):
+    OPEN = "open"
+    INVESTIGATING = "investigating"
+    RESOLVED = "resolved"
+    DISMISSED = "dismissed"
 
 
 class Ticket(Base):
@@ -244,6 +316,26 @@ class Ticket(Base):
         "User", foreign_keys=[reported_user_id], back_populates="tickets_reported"
     )
     product = relationship("Product")
+
+
+class Report(Base):
+    __tablename__ = "reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reported_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    reported_product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    reported_conversation_id = Column(Integer, nullable=True)
+    reason = Column(String(50), nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String(20), default=ReportStatus.OPEN.value)
+    admin_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    reporter = relationship("User", foreign_keys=[reporter_id])
+    reported_user = relationship("User", foreign_keys=[reported_user_id])
+    product = relationship("Product", back_populates="reports")
 
 
 class ActivityLog(Base):

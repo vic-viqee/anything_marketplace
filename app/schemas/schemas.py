@@ -11,6 +11,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6, max_length=100)
     role: Optional[str] = "customer"
+    subscription_tier: Optional[str] = "free"
 
 
 class UserUpdate(BaseModel):
@@ -25,6 +26,13 @@ class UserResponse(UserBase):
     role: str
     is_active: bool
     profile_image: Optional[str] = None
+    is_suspended: bool = False
+    subscription_tier: str = "free"
+    subscription_expires_at: Optional[datetime] = None
+    kyc_status: str = "none"
+    is_verified: bool = False
+    featured_listings_used: int = 0
+    featured_listings_limit: int = 2
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -58,6 +66,10 @@ class ProductListResponse(BaseModel):
     image_url: Optional[str] = None
     status: str
     is_approved: bool
+    is_featured: bool = False
+    seller_id: Optional[int] = None
+    seller_username: Optional[str] = None
+    seller_is_verified: bool = False
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -103,18 +115,6 @@ class ProductResponse(ProductBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     sold_at: Optional[datetime] = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ProductListResponse(BaseModel):
-    id: int
-    title: str
-    price: int
-    image_url: Optional[str] = None
-    status: str
-    is_approved: bool
-    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -222,3 +222,54 @@ class SendNotificationRequest(BaseModel):
     user_id: int
     title: str = Field(..., min_length=1, max_length=100)
     message: str = Field(..., min_length=1, max_length=500)
+
+
+class KYCUploadRequest(BaseModel):
+    id_number: str = Field(..., min_length=5, max_length=50)
+
+
+class SubscriptionUpdateRequest(BaseModel):
+    tier: str = Field(..., pattern="^(free|basic|standard|premium)$")
+    duration_days: int = Field(default=30, ge=1, le=365)
+
+
+class ReportCreate(BaseModel):
+    reported_user_id: Optional[int] = None
+    reported_product_id: Optional[int] = None
+    reported_conversation_id: Optional[int] = None
+    reason: str = Field(
+        ..., pattern="^(fake_product|scam|harassment|wrong_category|spam|other)$"
+    )
+    description: Optional[str] = Field(None, max_length=1000)
+
+
+class ReportResponse(BaseModel):
+    id: int
+    reporter_id: int
+    reported_user_id: Optional[int] = None
+    reported_product_id: Optional[int] = None
+    reported_conversation_id: Optional[int] = None
+    reason: str
+    description: Optional[str] = None
+    status: str
+    admin_notes: Optional[str] = None
+    created_at: datetime
+    resolved_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class ReportUpdate(BaseModel):
+    status: str = Field(..., pattern="^(open|investigating|resolved|dismissed)$")
+    admin_notes: Optional[str] = None
+
+
+class FeaturedPricing(BaseModel):
+    free_limit: int = 2
+    basic_limit: int = 5
+    standard_limit: int = 15
+    premium_limit: int = -1
+    basic_price: int = 200
+    standard_price: int = 500
+    premium_price: int = 1000
+    featured_duration_days: int = 7

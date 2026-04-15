@@ -15,6 +15,7 @@ class TicketCreate(BaseModel):
     description: str
     reported_user_id: Optional[int] = None
     product_id: Optional[int] = None
+    subscription_tier: Optional[str] = None
 
 
 class TicketResponse(BaseModel):
@@ -36,10 +37,17 @@ def create_ticket(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
+    from app.models.models import TicketType as TicketTypeEnum
+
+    if ticket_data.ticket_type == TicketTypeEnum.SUBSCRIPTION_REQUEST:
+        description = f"Subscription Request: {ticket_data.subscription_tier}\n\n{ticket_data.description}"
+    else:
+        description = ticket_data.description
+
     ticket = Ticket(
         user_id=current_user.id,
         ticket_type=ticket_data.ticket_type,
-        description=ticket_data.description,
+        description=description,
         reported_user_id=ticket_data.reported_user_id,
         product_id=ticket_data.product_id,
     )

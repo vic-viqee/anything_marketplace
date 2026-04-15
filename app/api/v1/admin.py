@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime
+from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 import csv
 import io
@@ -693,3 +693,329 @@ def get_activity_logs(
         }
         for log in logs
     ]
+
+
+@router.get("/kyc/pending")
+def get_pending_kyc(
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    users = (
+        db.query(User)
+        .filter(User.kyc_status == "submitted")
+        .order_by(User.kyc_submitted_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": u.id,
+            "phone": u.phone,
+            "username": u.username,
+            "role": u.role.value,
+            "kyc_id_number": u.kyc_id_number,
+            "kyc_id_front_url": u.kyc_id_front_url,
+            "kyc_selfie_url": u.kyc_selfie_url,
+            "kyc_submitted_at": u.kyc_submitted_at.isoformat()
+            if u.kyc_submitted_at
+            else None,
+        }
+        for u in users
+    ]
+
+
+@router.post("/kyc/{user_id}/approve")
+def approve_kyc(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    user.kyc_status = "approved"
+    user.kyc_reviewed_at = datetime.utcnow()
+    db.commit()
+
+    create_notification(
+        db,
+        user_id=user.id,
+        notification_type=NotificationType.NEW_MESSAGE,
+        title="KYC Approved",
+        message="Your identity verification has been approved. Your account is now fully verified.",
+    )
+
+    log_activity(
+        db,
+        admin.id,
+        "approve_kyc",
+        "user",
+        user_id,
+        f"Approved KYC for user {user.username or user.phone}",
+    )
+    return {"message": "KYC approved"}
+
+
+@router.post("/kyc/{user_id}/reject")
+def reject_kyc(
+    user_id: int,
+    reason: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    user.kyc_status = "rejected"
+    user.kyc_rejection_reason = reason
+    user.kyc_reviewed_at = datetime.utcnow()
+    db.commit()
+
+    create_notification(
+        db,
+        user_id=user.id,
+        notification_type=NotificationType.NEW_MESSAGE,
+        title="KYC Rejected",
+        message=f"Your identity verification was rejected. Reason: {reason}. Please submit new documents.",
+    )
+
+    log_activity(
+        db,
+        admin.id,
+        "reject_kyc",
+        "user",
+        user_id,
+        f"Rejected KYC for user {user.username or user.phone}",
+    )
+    return {"message": "KYC rejected"}
+
+
+@router.patch("/users/{user_id}/subscription")
+def update_subscription(
+    user_id: int,
+    tier: str,
+    duration_days: int = 30,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    if tier not in ["free", "basic", "standard", "premium"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid tier"
+        )
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    user.subscription_tier = tier
+    if tier == "free":
+        user.subscription_expires_at = None
+        user.subscription_started_at = None
+        user.featured_listings_used_this_month = 0
+    else:
+        user.subscription_started_at = datetime.utcnow()
+        user.subscription_expires_at = datetime.utcnow() + timedelta(days=duration_days)
+    db.commit()
+
+    create_notification(
+        db,
+        user_id=user.id,
+        notification_type=NotificationType.NEW_MESSAGE,
+        title="Subscription Updated",
+        message=f"Your subscription has been updated to {tier.title()} tier.",
+    )
+
+    log_activity(
+        db,
+        admin.id,
+        "update_subscription",
+        "user",
+        user_id,
+        f"Set subscription to {tier} for {duration_days} days",
+    )
+    return {"message": f"Subscription updated to {tier}"}
+
+
+@router.post("/users/{user_id}/suspend")
+def suspend_user(
+    user_id: int,
+    reason: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    if user.role == UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot suspend admin"
+        )
+
+    user.is_suspended = True
+    user.suspension_reason = reason
+    db.commit()
+
+    products = db.query(Product).filter(Product.seller_id == user_id).all()
+    for p in products:
+        p.is_approved = False
+
+    db.commit()
+
+    create_notification(
+        db,
+        user_id=user.id,
+        notification_type=NotificationType.NEW_MESSAGE,
+        title="Account Suspended",
+        message=f"Your account has been suspended. Reason: {reason}. Contact support for assistance.",
+    )
+
+    log_activity(
+        db, admin.id, "suspend_user", "user", user_id, f"Suspended user: {reason}"
+    )
+    return {"message": "User suspended"}
+
+
+@router.post("/users/{user_id}/unsuspend")
+def unsuspend_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    user.is_suspended = False
+    user.suspension_reason = None
+    db.commit()
+
+    create_notification(
+        db,
+        user_id=user.id,
+        notification_type=NotificationType.NEW_MESSAGE,
+        title="Account Reactivated",
+        message="Your account has been reactivated. You now have full access.",
+    )
+
+    log_activity(db, admin.id, "unsuspend_user", "user", user_id, "Reactivated user")
+    return {"message": "User unsuspended"}
+
+
+@router.get("/subscriptions")
+def get_subscriptions(
+    skip: int = 0,
+    limit: int = 50,
+    tier: str = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    query = db.query(User).filter(User.role == UserRole.SELLER)
+
+    if tier:
+        query = query.filter(User.subscription_tier == tier)
+
+    users = query.order_by(User.created_at.desc()).offset(skip).limit(limit).all()
+
+    return [
+        {
+            "id": u.id,
+            "phone": u.phone,
+            "username": u.username,
+            "subscription_tier": u.subscription_tier,
+            "subscription_started_at": u.subscription_started_at.isoformat()
+            if u.subscription_started_at
+            else None,
+            "subscription_expires_at": u.subscription_expires_at.isoformat()
+            if u.subscription_expires_at
+            else None,
+            "featured_listings_used": u.featured_listings_used_this_month or 0,
+            "is_verified": u.kyc_status == "approved"
+            and u.subscription_tier in ["standard", "premium"],
+        }
+        for u in users
+    ]
+
+
+@router.get("/reports")
+def get_reports(
+    skip: int = 0,
+    limit: int = 50,
+    status_filter: str = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from app.models.models import Report
+
+    query = db.query(Report)
+
+    if status_filter:
+        query = query.filter(Report.status == status_filter)
+
+    reports = query.order_by(Report.created_at.desc()).offset(skip).limit(limit).all()
+
+    return [
+        {
+            "id": r.id,
+            "reporter_id": r.reporter_id,
+            "reported_user_id": r.reported_user_id,
+            "reported_product_id": r.reported_product_id,
+            "reported_conversation_id": r.reported_conversation_id,
+            "reason": r.reason,
+            "description": r.description,
+            "status": r.status,
+            "admin_notes": r.admin_notes,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "resolved_at": r.resolved_at.isoformat() if r.resolved_at else None,
+        }
+        for r in reports
+    ]
+
+
+@router.patch("/reports/{report_id}")
+def update_report(
+    report_id: int,
+    status: str,
+    admin_notes: str = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from app.models.models import Report
+
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Report not found"
+        )
+
+    report.status = status
+    if admin_notes:
+        report.admin_notes = admin_notes
+    if status in ["resolved", "dismissed"]:
+        report.resolved_at = datetime.utcnow()
+
+    db.commit()
+    log_activity(
+        db,
+        admin.id,
+        "update_report",
+        "report",
+        report_id,
+        f"Updated status to {status}",
+    )
+    return {"message": "Report updated"}
