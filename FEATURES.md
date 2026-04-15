@@ -23,19 +23,23 @@ This document contains the complete features overview for the Anything Marketpla
 
 ---
 
-## What's Built (MVP v2)
+## What's Built (MVP v3)
 
 ### Core Features
-- Product feed with category filters (paginated, conditionally cached in Redis)
+- Product feed with category filters (paginated, featured listings pinned to top)
 - Product search (title/description)
 - Post ads with images (auto-compressed to 1200px, stored on **Cloudinary CDN**)
 - Product approval system (admin moderates before live)
+- **Subscription Tiers** (Free, Basic, Standard, Premium) with featured listing quotas
+- **KYC Verification** (ID + selfie upload) for sellers
+- **Verified Badges** for Standard/Premium tier sellers
 - P2P chat messaging (WebSocket-enabled, real-time)
 - In-app notifications for product approval/rejection **and new messages**
 - Mark items as sold
 - User ratings (1-5 stars)
 - User profiles with photo, username, password management
 - Dark/light mode theming
+- **Report System** for flagging suspicious products/users
 
 ### Security Features
 - JWT token invalidation on password change (via password_version)
@@ -48,7 +52,10 @@ This document contains the complete features overview for the Anything Marketpla
 ### Admin Features
 - Analytics dashboard (pie + bar charts)
 - Product moderation (approve/reject/bulk)
-- User management (roles, deactivate, delete, **search**)
+- User management (roles, deactivate, suspend, delete, **search**)
+- **KYC Review** - Approve/reject seller identity verification
+- **Subscription Management** - View and update seller tiers
+- **Reports Management** - Review and resolve flagged content
 - Support ticket system
 - Activity logs
 - Category management (create new categories)
@@ -62,9 +69,9 @@ This document contains the complete features overview for the Anything Marketpla
 
 | Role | Abilities |
 |------|----------|
-| **Customer** | Browse products, message sellers, rate after purchase |
-| **Seller** | All customer abilities + post new listings |
-| **Admin** | All abilities + approve/reject products, manage users, view analytics |
+| **Customer** | Browse products, message sellers, rate after purchase, report suspicious content |
+| **Seller** | All customer abilities + post listings + subscribe to tiers + submit KYC |
+| **Admin** | All abilities + approve products, manage users, review KYC, manage subscriptions, handle reports |
 
 ---
 
@@ -78,18 +85,23 @@ This document contains the complete features overview for the Anything Marketpla
 5. **Pay on Delivery** - Meet the seller, inspect the item, and pay when you receive it
 
 ### For Sellers
-1. **Register** - Create account and choose "Seller" role
-2. **Post Ad** - Fill in title, description, price, and upload an image
-3. **Wait for Approval** - Your product won't appear until admin approves it
-4. **Check Status** - Visit "My Products" to see pending/approved status
-5. **Get Notified** - Receive in-app notification when your product is approved
-6. **Close Sale** - When buyer pays, mark the item as "Sold"
+1. **Register** - Create account, choose "Seller" role, select subscription tier
+2. **Submit KYC** - Upload ID card front and selfie for identity verification
+3. **Post Ad** - Fill in title, description, price, and upload an image
+4. **Wait for Approval** - Your product won't appear until admin approves it
+5. **Check Status** - Visit "My Products" to see pending/approved status
+6. **Feature Listings** - Use your tier's featured quota to pin listings to top
+7. **Get Notified** - Receive in-app notification when your product is approved
+8. **Close Sale** - When buyer pays, mark the item as "Sold"
 
 ### For Admins
-1. **Review** - Go to admin dashboard to see pending products
+1. **Review Products** - Go to admin dashboard to see pending products
 2. **Approve or Reject** - Click to approve (goes live) or reject (notified to seller)
-3. **Manage Users** - View all users, change roles, or delete accounts
-4. **View Analytics** - See total users, products, pending approvals, and sold items
+3. **Manage Users** - View all users, change roles, suspend, or delete
+4. **Review KYC** - Approve or reject seller identity verification
+5. **Manage Subscriptions** - View and update seller subscription tiers
+6. **Handle Reports** - Review and resolve reports about suspicious content
+7. **View Analytics** - See total users, products, pending approvals, and sold items
 
 ---
 
@@ -119,15 +131,16 @@ This document contains the complete features overview for the Anything Marketpla
 | Payouts - Manage seller payouts |
 | Refund Handling - Process refunds |
 
-### Priority 4: Advanced (Later)
+### Priority 4: Advanced
 
 | Feature | Status |
 |---------|--------|
-| Subscription Model - Membership/tier access |
+| **Subscription Model** - Membership/tier access | ✅ Done |
+| **Business Verification** - ID/credential checking (KYC) | ✅ Done |
+| **Full Ban System** - Ban with reason + duration | ✅ Done |
+| **Report/Flag content** - Users can report suspicious products/users | ✅ Done |
 | Email Automation - Auto-emails for events |
 | User Behavior Analytics - Detailed tracking |
-| Business Verification - ID/credential checking |
-| **Full Ban System** - Ban with reason + duration (simpler deactivate available now) |
 
 ---
 
@@ -141,6 +154,15 @@ This document contains the complete features overview for the Anything Marketpla
 ---
 
 ## Recent Updates
+
+### Subscription Tiers & KYC (2026-04-15)
+- Added subscription tiers: Free (0 featured), Basic (1), Standard (3), Premium (5)
+- Implemented KYC verification with ID + selfie upload
+- Verified badge for Standard/Premium tier sellers
+- Featured listings pinned to top of feed (7-day duration)
+- Admin dashboard with KYC review, subscription management, reports tabs
+- Report system for flagging suspicious products/users
+- Suspended users hidden from product feed
 
 ### Bug Fixes (2026-04-11)
 - Fixed images not displaying on Cloudinary (now handles full CDN URLs)
@@ -163,7 +185,7 @@ This document contains the complete features overview for the Anything Marketpla
 
 ### Security (High)
 - Rate limiting (currently disabled - slowapi Python 3.14 issue)
-- Token invalidation on password change (password_version column)
+- ✅ Token invalidation on password change (password_version column)
 - Email verification
 - Password reset flow
 
@@ -171,16 +193,15 @@ This document contains the complete features overview for the Anything Marketpla
 - WhatsApp Business integration (currently just a link)
 - Push notifications
 - Shipping integration
-- Online payment support
+- Online payment support (M-Pesa STK push - planned)
 
 ### User Features (Medium)
 - Multiple images per product
 - Favorites/Wishlist
 - Email notifications
-- Report/Flag content
+- ✅ Report/Flag content
 
 ### Lower Priority
-- Subscription Model - Membership/tier access
 - Email Automation - Auto-emails for events
 - Store reviews/ratings
 
@@ -189,10 +210,11 @@ This document contains the complete features overview for the Anything Marketpla
 ## Technical Notes
 
 - Products require admin approval before appearing in public feed
+- Featured listings appear at top of feed (sorted first, 7-day duration)
 - Sellers can view their products status in "My Products" page
 - In-app notifications are sent when products are approved/rejected **and for new messages**
 - Images are auto-compressed to 1200px max, stored on **Cloudinary CDN**
-- Admin dashboard has 8 tabs: Analytics, Products, Users, Tickets, Reviews, Broadcast, Activity, Categories
+- Admin dashboard has 11 tabs: Analytics, Products, Users, KYC, Subscriptions, Reports, Tickets, Reviews, Broadcast, Activity, Categories
 
 ---
 
@@ -207,4 +229,4 @@ This document contains the complete features overview for the Anything Marketpla
 
 ---
 
-_Last updated: 2026-04-11 (includes all admin tabs, Cloudinary images, message notifications)_
+_Last updated: 2026-04-15 (includes subscription tiers, KYC verification, reports, suspended users)_
