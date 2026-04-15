@@ -2,10 +2,10 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { productsApi, chatApi } from '@/lib/api';
+import { productsApi, chatApi, reportsApi } from '@/lib/api';
 import { useAuthStore } from '@/context/auth-store';
-import { ApiError } from '@/types';
-import { ArrowLeft, MessageCircle, Clock, Star, MessageSquare } from 'lucide-react';
+import { ApiError, REPORT_REASONS } from '@/types';
+import { ArrowLeft, MessageCircle, Clock, Star, MessageSquare, BadgeCheck, Flag, X } from 'lucide-react';
 
 interface ProductDetail {
   id: number;
@@ -15,6 +15,7 @@ interface ProductDetail {
   image_url: string | null;
   status: string;
   is_approved: boolean;
+  is_featured: boolean;
   seller_id: number;
   category_id: number | null;
   created_at: string;
@@ -23,6 +24,8 @@ interface ProductDetail {
     username: string | null;
     phone: string;
     profile_image: string | null;
+    subscription_tier?: string;
+    is_verified?: boolean;
   } | null;
 }
 
@@ -37,6 +40,11 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const [ratingStats, setRatingStats] = useState<RatingStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDescription, setReportDescription] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
 
@@ -116,6 +124,35 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     }
   };
 
+  const handleReport = async () => {
+    if (!reportReason) {
+      alert('Please select a reason for reporting');
+      return;
+    }
+
+    setSubmittingReport(true);
+    try {
+      await reportsApi.create({
+        reason: reportReason,
+        description: reportDescription,
+        reported_user_id: product.seller_id,
+        reported_product_id: product.id,
+      });
+      setReportSuccess(true);
+      setTimeout(() => {
+        setShowReportDialog(false);
+        setReportSuccess(false);
+        setReportReason('');
+        setReportDescription('');
+      }, 2000);
+    } catch (err) {
+      const e = err as ApiError;
+      alert(e.response?.data?.detail || 'Failed to submit report');
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <button
@@ -180,7 +217,18 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 
           {product.seller && (
             <div className="border-t border-border pt-6">
-              <h2 className="text-sm font-medium text-muted-foreground mb-4">Seller</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-medium text-muted-foreground">Seller</h2>
+                {!isOwner && (
+                  <button
+                    onClick={() => setShowReportDialog(true)}
+                    className="text-sm text-muted-foreground hover:text-destructive flex items-center gap-1"
+                  >
+                    <Flag className="w-3 h-3" />
+                    Report
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                   {product.seller.profile_image ? (
@@ -196,9 +244,16 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-foreground">
-                    {product.seller.username || 'Anonymous Seller'}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground">
+                      {product.seller.username || 'Anonymous Seller'}
+                    </p>
+                    {(product.seller.is_verified || product.seller.subscription_tier === 'standard' || product.seller.subscription_tier === 'premium') && (
+                      <span title="Verified Seller">
+                        <BadgeCheck className="w-5 h-5 text-blue-500" />
+                      </span>
+                    )}
+                  </div>
                   {ratingStats && ratingStats.total_ratings > 0 && (
                     <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
                       <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
@@ -246,6 +301,76 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           </div>
         </div>
       </div>
+
+      {showReportDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background rounded-xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-foreground">Report Product</h3>
+              <button onClick={() => setShowReportDialog(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {reportSuccess ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Star className="w-8 h-8 text-green-500" />
+                </div>
+                <p className="text-lg font-medium text-foreground">Report Submitted</p>
+                <p className="text-sm text-muted-foreground mt-2">Thank you. We will review this report shortly.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Help us keep the marketplace safe by reporting suspicious content.
+                </p>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Reason</label>
+                  <select
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border border-input bg-background text-foreground"
+                  >
+                    <option value="">Select a reason</option>
+                    {REPORT_REASONS.map((reason) => (
+                      <option key={reason.value} value={reason.value}>{reason.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Additional details (optional)</label>
+                  <textarea
+                    value={reportDescription}
+                    onChange={(e) => setReportDescription(e.target.value)}
+                    rows={3}
+                    placeholder="Provide any additional context..."
+                    className="w-full px-4 py-3 rounded-lg border border-input bg-background text-foreground resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowReportDialog(false)}
+                    className="flex-1 py-3 border border-input rounded-full text-foreground hover:bg-muted transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleReport}
+                    disabled={submittingReport}
+                    className="flex-1 py-3 bg-destructive text-destructive-foreground rounded-full font-medium hover:bg-destructive/90 disabled:opacity-50 transition-colors"
+                  >
+                    {submittingReport ? 'Submitting...' : 'Submit Report'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
