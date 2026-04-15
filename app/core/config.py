@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     MAX_IMAGE_WIDTH: int = 1200
     MAX_PROFILE_WIDTH: int = 400
 
-    CORS_ORIGINS: str = '["http://localhost:3000","http://127.0.0.1:3000"]'
+    CORS_ORIGINS: str = ""
 
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_DEFAULT: str = "100/minute"
@@ -39,10 +39,30 @@ class Settings(BaseSettings):
 
     @property
     def parsed_cors_origins(self) -> list[str]:
+        # Default origins
+        defaults = [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "https://anything-marketplace-web.onrender.com",
+        ]
+
+        if not self.CORS_ORIGINS:
+            return defaults
+
         try:
-            return json.loads(self.CORS_ORIGINS)
+            # Try JSON parsing first
+            parsed = json.loads(self.CORS_ORIGINS)
+            if isinstance(parsed, list):
+                return parsed + defaults
+            return defaults
         except (json.JSONDecodeError, TypeError):
-            return ["http://localhost:3000", "http://127.0.0.1:3000"]
+            pass
+
+        # Try comma-separated
+        if "," in self.CORS_ORIGINS:
+            return [o.strip() for o in self.CORS_ORIGINS.split(",")] + defaults
+
+        return defaults
 
 
 @lru_cache()
