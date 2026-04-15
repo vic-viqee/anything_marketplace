@@ -21,7 +21,12 @@ class Settings(BaseSettings):
     MAX_IMAGE_WIDTH: int = 1200
     MAX_PROFILE_WIDTH: int = 400
 
-    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://anything-marketplace-web.onrender.com",
+        "https://*.onrender.com",
+    ]
 
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_DEFAULT: str = "100/minute"
