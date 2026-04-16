@@ -48,13 +48,17 @@ function ProfileContent() {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [contactAdminLoading, setContactAdminLoading] = useState(false);
+  const [upgradingToSeller, setUpgradingToSeller] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (searchParams.get('tab') === 'subscription') {
       setActiveTab('subscription');
     }
-  }, [searchParams]);
+    if (searchParams.get('upgrade') === 'true' && user?.role !== 'seller') {
+      setActiveTab('subscription');
+    }
+  }, [searchParams, user]);
 
   const tierConfig: Record<string, { name: string; icon: React.ReactNode; color: string; bgColor: string }> = {
     free: { name: 'Free', icon: <Shield className="w-5 h-5" />, color: 'text-muted-foreground', bgColor: 'bg-muted' },
@@ -88,6 +92,25 @@ function ProfileContent() {
     logout();
     router.push('/');
     router.refresh();
+  };
+
+  const handleUpgradeToSeller = async () => {
+    setUpgradingToSeller(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await authApi.updateMe({ upgrade_to_seller: true });
+      setSuccess('You are now a seller! You can now post products.');
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        setAuth(res.data, token);
+      }
+    } catch (err) {
+      const e = err as ApiError;
+      setError(e.response?.data?.detail || 'Failed to upgrade to seller');
+    } finally {
+      setUpgradingToSeller(false);
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -392,6 +415,27 @@ function ProfileContent() {
           {success && (
             <div className="p-4 bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400 text-sm">
               {success}
+            </div>
+          )}
+
+          {user?.role !== 'seller' && (
+            <div className="border border-yellow-500/30 bg-yellow-500/10 rounded-xl p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 rounded-xl bg-yellow-500/20">
+                  <Star className="w-5 h-5 text-yellow-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-medium text-foreground">Become a Seller</h3>
+                  <p className="text-sm text-muted-foreground">Start selling on the marketplace</p>
+                </div>
+              </div>
+              <button
+                onClick={handleUpgradeToSeller}
+                disabled={upgradingToSeller}
+                className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {upgradingToSeller ? 'Upgrading...' : 'Upgrade to Seller'}
+              </button>
             </div>
           )}
 

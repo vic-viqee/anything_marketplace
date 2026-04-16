@@ -28,7 +28,7 @@ export const authApi = {
   
   me: () => api.get('/api/v1/auth/me'),
   
-  updateMe: (data: { username?: string; password?: string; current_password?: string }) =>
+  updateMe: (data: { username?: string; password?: string; current_password?: string; upgrade_to_seller?: boolean }) =>
     api.patch('/api/v1/auth/me', data),
   
   uploadProfileImage: (file: File) => {

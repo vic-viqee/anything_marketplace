@@ -66,6 +66,11 @@ class User(Base):
     is_suspended = Column(Boolean, default=False)
     suspension_reason = Column(Text, nullable=True)
 
+    # Pending payment (for registration flow)
+    pending_tier = Column(String(20), nullable=True)
+    pending_payment_checkout_id = Column(String(100), nullable=True)
+    payment_pending_at = Column(DateTime(timezone=True), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

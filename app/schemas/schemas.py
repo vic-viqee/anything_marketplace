@@ -19,6 +19,7 @@ class UserUpdate(BaseModel):
     password: Optional[str] = Field(None, min_length=6, max_length=100)
     current_password: Optional[str] = None
     profile_image: Optional[str] = None
+    upgrade_to_seller: Optional[bool] = False
 
 
 class UserResponse(UserBase):
@@ -53,6 +54,11 @@ class TokenWithUser(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
+    payment_pending: Optional[bool] = False
+    checkout_request_id: Optional[str] = None
+    amount: Optional[int] = None
+    tier: Optional[str] = None
+    message: Optional[str] = None
 
 
 class TokenData(BaseModel):

@@ -20,18 +20,43 @@ export default function PostAd() {
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isSeller } = useAuthStore();
 
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/login');
       return;
     }
+    if (!isSeller) {
+      return;
+    }
     productsApi.categories().then(res => setCategories(res.data)).catch(() => {});
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isSeller, router]);
 
   if (!isAuthenticated) {
     return null;
+  }
+
+  if (!isSeller) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full mb-6">
+          <svg className="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </div>
+        <h2 className="font-serif text-2xl text-foreground mb-2">Become a Seller</h2>
+        <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+          You need a seller account to post products. Upgrade your account to start selling.
+        </p>
+        <button
+          onClick={() => router.push('/profile?upgrade=true')}
+          className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors"
+        >
+          Upgrade to Seller
+        </button>
+      </div>
+    );
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,7 +84,16 @@ export default function PostAd() {
       setSubmitted(true);
     } catch (err) {
       const e = err as ApiError;
-      setError(e.response?.data?.detail || 'Failed to create listing');
+      const status = e.response?.status;
+      const detail = e.response?.data?.detail;
+      if (status === 403) {
+        setError(detail || 'You need to be a seller to post products. Upgrade your account in profile settings.');
+      } else if (status === 401) {
+        setError('Session expired. Please login again.');
+        router.push('/login');
+      } else {
+        setError(detail || 'Failed to create listing');
+      }
     } finally {
       setLoading(false);
     }

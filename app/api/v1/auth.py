@@ -112,7 +112,9 @@ def user_to_response(user: User) -> UserResponse:
 @router.post(
     "/register", response_model=TokenWithUser, status_code=status.HTTP_201_CREATED
 )
-def register(request: Request, user_data: UserCreate, db: Session = Depends(get_db)):
+async def register(
+    request: Request, user_data: UserCreate, db: Session = Depends(get_db)
+):
     existing_user = db.query(User).filter(User.phone == user_data.phone).first()
     if existing_user:
         raise HTTPException(
@@ -136,6 +138,54 @@ def register(request: Request, user_data: UserCreate, db: Session = Depends(get_
     tier = user_data.subscription_tier or "free"
     if tier not in SUBSCRIPTION_LIMITS:
         tier = "free"
+
+    tier_price = settings.get_tier_price(tier)
+
+    from app.services.payment_service import fluxpay_client, FluxPayError
+
+    if tier_price > 0 and user_data.role == "seller":
+        hashed_password = get_password_hash(user_data.password)
+        new_user = User(
+            phone=user_data.phone,
+            username=user_data.username,
+            hashed_password=hashed_password,
+            role=UserRole.CUSTOMER,
+            subscription_tier="free",
+            pending_tier=tier,
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+
+        reference = f"REG_{new_user.id}_{tier}_{int(func.now().timestamp())}"
+        try:
+            result = await fluxpay_client.initiate_payment(
+                amount=tier_price,
+                phone_number=user_data.phone,
+                reference=reference,
+            )
+
+            new_user.pending_payment_checkout_id = result.get("checkout_request_id")
+            new_user.payment_pending_at = func.now()
+            db.commit()
+
+            return {
+                "access_token": "",
+                "token_type": "bearer",
+                "user": user_to_response(new_user),
+                "payment_pending": True,
+                "checkout_request_id": result.get("checkout_request_id"),
+                "amount": tier_price,
+                "tier": tier,
+                "message": f"Payment of KES {tier_price} required. You will receive an STK push on your phone.",
+            }
+        except FluxPayError as e:
+            db.delete(new_user)
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Payment failed: {e.message}",
+            )
 
     hashed_password = get_password_hash(user_data.password)
     new_user = User(
@@ -238,6 +288,9 @@ def update_current_user(
             )
         current_user.hashed_password = get_password_hash(user_data.password)
         current_user.password_version = current_user.password_version + 1
+
+    if user_data.upgrade_to_seller and current_user.role == UserRole.CUSTOMER:
+        current_user.role = UserRole.SELLER
 
     db.commit()
     db.refresh(current_user)
@@ -363,3 +416,128 @@ async def upload_kyc(
     db.commit()
     db.refresh(current_user)
     return user_to_response(current_user)
+
+
+class MpesaCallback(BaseModel):
+    checkout_request_id: str
+    result_code: int
+    result_desc: str
+    amount: Optional[str] = None
+    phone_number: Optional[str] = None
+
+
+class PaymentInitiation(BaseModel):
+    phone: str
+    tier: str
+
+
+@router.post("/initiate-payment")
+async def initiate_subscription_payment(
+    payment_data: PaymentInitiation,
+    db: Session = Depends(get_db),
+):
+    """Initiate M-Pesa payment for subscription upgrade"""
+    tier = payment_data.tier
+    if tier not in SUBSCRIPTION_LIMITS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid subscription tier",
+        )
+
+    tier_price = settings.get_tier_price(tier)
+    if tier_price <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Free tier does not require payment",
+        )
+
+    user = db.query(User).filter(User.phone == payment_data.phone).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    from app.services.payment_service import fluxpay_client, FluxPayError
+
+    try:
+        reference = f"REG_{user.id}_{tier}_{int(func.now().timestamp())}"
+        result = await fluxpay_client.initiate_payment(
+            amount=tier_price,
+            phone_number=payment_data.phone,
+            reference=reference,
+        )
+
+        user.pending_tier = tier
+        user.pending_payment_checkout_id = result.get("checkout_request_id")
+        user.payment_pending_at = func.now()
+        db.commit()
+
+        return {
+            "success": True,
+            "checkout_request_id": result.get("checkout_request_id"),
+            "amount": tier_price,
+            "tier": tier,
+            "phone": payment_data.phone,
+        }
+
+    except FluxPayError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Payment initiation failed: {e.message}",
+        )
+
+
+@router.post("/mpesa/callback")
+async def mpesa_callback(
+    callback: MpesaCallback,
+    db: Session = Depends(get_db),
+):
+    """Handle M-Pesa payment callback"""
+    if callback.result_code != 0:
+        return {"status": "failed", "message": callback.result_desc}
+
+    user = (
+        db.query(User)
+        .filter(User.pending_payment_checkout_id == callback.checkout_request_id)
+        .first()
+    )
+
+    if not user:
+        return {"status": "ignored", "message": "No pending payment found"}
+
+    tier = user.pending_tier
+    user.role = UserRole.SELLER
+    user.subscription_tier = tier
+    user.subscription_started_at = func.now()
+    user.pending_tier = None
+    user.pending_payment_checkout_id = None
+    user.payment_pending_at = None
+    db.commit()
+
+    return {"status": "success", "user_id": user.id, "tier": tier}
+
+
+@router.get("/payment-status/{checkout_request_id}")
+def check_payment_status(
+    checkout_request_id: str,
+    db: Session = Depends(get_db),
+):
+    """Check payment status (polling endpoint for frontend)"""
+    user = (
+        db.query(User)
+        .filter(User.pending_payment_checkout_id == checkout_request_id)
+        .first()
+    )
+
+    if not user:
+        return {"status": "completed", "message": "Payment processed"}
+
+    if user.pending_payment_checkout_id is None:
+        return {
+            "status": "completed",
+            "tier": user.subscription_tier,
+            "role": user.role.value,
+        }
+
+    return {"status": "pending", "message": "Waiting for payment..."}

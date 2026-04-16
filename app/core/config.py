@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     ADMIN_PHONE: str = "254700000000"
     ADMIN_PASSWORD: str = "admin123"
 
+    TIER_PRICES: str = "free:0,basic:200,standard:500,premium:1000"
+
     class Config:
         env_file = ".env"
         extra = "ignore"
@@ -69,6 +71,15 @@ class Settings(BaseSettings):
             return [o.strip() for o in self.CORS_ORIGINS.split(",")] + defaults
 
         return defaults
+
+    def get_tier_price(self, tier: str) -> int:
+        """Get price for a subscription tier"""
+        tier_prices = {}
+        for item in self.TIER_PRICES.split(","):
+            if ":" in item:
+                t, price = item.split(":")
+                tier_prices[t.strip()] = int(price.strip())
+        return tier_prices.get(tier, 0)
 
 
 @lru_cache()
