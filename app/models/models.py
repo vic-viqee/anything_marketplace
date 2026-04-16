@@ -350,3 +350,69 @@ class ActivityLog(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="activity_logs")
+
+
+class PaymentStatus(str, enum.Enum):
+    PENDING = "pending"
+    SUCCESS = "success"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    amount = Column(Integer, nullable=False)
+    status = Column(
+        SQLEnum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False
+    )
+
+    # FluxPay transaction details
+    fluxpay_checkout_request_id = Column(String(100), nullable=True)
+    mpesa_receipt_no = Column(String(100), nullable=True)
+
+    # Reference
+    reference = Column(String(100), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    user = relationship("User")
+    product = relationship("Product")
+
+
+class OrderStatus(str, enum.Enum):
+    PENDING = "pending"
+    PAID = "paid"
+    SHIPPED = "shipped"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    buyer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    amount = Column(Integer, nullable=False)
+    status = Column(SQLEnum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
+
+    # Payment reference
+    payment_id = Column(Integer, ForeignKey("payments.id"), nullable=True)
+
+    # Delivery info
+    delivery_method = Column(String(50), nullable=True)  # "meetup" or "shipping"
+    shipping_address = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    buyer = relationship("User", foreign_keys=[buyer_id])
+    product = relationship("Product")
+    seller = relationship("User", foreign_keys=[seller_id])
+    payment = relationship("Payment")

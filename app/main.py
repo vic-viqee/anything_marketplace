@@ -17,6 +17,8 @@ from app.api.v1.notifications import router as notifications_router
 from app.api.v1.tickets import router as tickets_router
 from app.api.v1.reports import router as reports_router
 from app.api.v1.websocket import router as ws_router
+from app.api.v1.payments import router as payments_router
+from app.api.v1.webhooks import router as webhooks_router
 from app.services.redis_service import redis_client
 
 try:
@@ -97,6 +99,57 @@ def run_migrations():
                 """)
                 )
                 print("Migration: Created reports table")
+
+            # Create payments table
+            result = conn.execute(
+                text(
+                    "SELECT table_name FROM information_schema.tables WHERE table_name = 'payments'"
+                )
+            )
+            if result.fetchone() is None:
+                conn.execute(
+                    text("""
+                    CREATE TABLE payments (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                        product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+                        amount INTEGER NOT NULL,
+                        status VARCHAR(20) DEFAULT 'pending',
+                        fluxpay_checkout_request_id VARCHAR(100),
+                        mpesa_receipt_no VARCHAR(100),
+                        reference VARCHAR(100),
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                        updated_at TIMESTAMP WITH TIME ZONE
+                    )
+                """)
+                )
+                print("Migration: Created payments table")
+
+            # Create orders table
+            result = conn.execute(
+                text(
+                    "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders'"
+                )
+            )
+            if result.fetchone() is None:
+                conn.execute(
+                    text("""
+                    CREATE TABLE orders (
+                        id SERIAL PRIMARY KEY,
+                        buyer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                        product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+                        seller_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                        amount INTEGER NOT NULL,
+                        status VARCHAR(20) DEFAULT 'pending',
+                        payment_id INTEGER REFERENCES payments(id) ON DELETE SET NULL,
+                        delivery_method VARCHAR(50),
+                        shipping_address TEXT,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                        updated_at TIMESTAMP WITH TIME ZONE
+                    )
+                """)
+                )
+                print("Migration: Created orders table")
 
             conn.commit()
     except Exception as e:
@@ -194,6 +247,8 @@ app.include_router(notifications_router)
 app.include_router(tickets_router)
 app.include_router(reports_router)
 app.include_router(ws_router)
+app.include_router(payments_router)
+app.include_router(webhooks_router)
 
 
 @app.get("/")

@@ -2,10 +2,10 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { productsApi, chatApi, reportsApi } from '@/lib/api';
+import { productsApi, chatApi, reportsApi, paymentsApi } from '@/lib/api';
 import { useAuthStore } from '@/context/auth-store';
 import { ApiError, REPORT_REASONS } from '@/types';
-import { ArrowLeft, MessageCircle, Clock, Star, MessageSquare, BadgeCheck, Flag, X } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Clock, Star, MessageSquare, BadgeCheck, Flag, X, Smartphone, Loader2 } from 'lucide-react';
 
 interface ProductDetail {
   id: number;
@@ -45,6 +45,11 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const [reportDescription, setReportDescription] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentPhone, setPaymentPhone] = useState('');
+  const [initiatingPayment, setInitiatingPayment] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [checkoutRequestId, setCheckoutRequestId] = useState('');
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
 
@@ -150,6 +155,28 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       alert(e.response?.data?.detail || 'Failed to submit report');
     } finally {
       setSubmittingReport(false);
+    }
+  };
+
+  const handleInitiatePayment = async () => {
+    if (!paymentPhone) {
+      alert('Please enter your M-Pesa phone number');
+      return;
+    }
+
+    setInitiatingPayment(true);
+    try {
+      const res = await paymentsApi.initiate({
+        product_id: product.id,
+        phone_number: paymentPhone,
+      });
+      setCheckoutRequestId(res.data.checkout_request_id);
+      setPaymentSuccess(true);
+    } catch (err) {
+      const e = err as ApiError;
+      alert(e.response?.data?.detail || 'Failed to initiate payment. Please try again.');
+    } finally {
+      setInitiatingPayment(false);
     }
   };
 
@@ -277,6 +304,20 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                   {sendingMessage ? 'Starting...' : 'Message Seller'}
                 </button>
 
+                <button
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      router.push('/login');
+                      return;
+                    }
+                    setShowPaymentDialog(true);
+                  }}
+                  className="w-full py-3 bg-green-600 text-white rounded-full font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Smartphone className="w-5 h-5" />
+                  Pay with M-Pesa
+                </button>
+
                 {product.seller?.phone && (
                   <a
                     href={`https://wa.me/${product.seller.phone.replace('+', '')}?text=Hi, I\'m interested in your "${product.title}" listed for KES ${product.price.toLocaleString()}`}
@@ -288,10 +329,6 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                     WhatsApp
                   </a>
                 )}
-
-                <p className="text-center text-xs text-muted-foreground">
-                  Pay on delivery - inspect the item before paying
-                </p>
               </>
             )}
           </div>
@@ -364,6 +401,80 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                     className="flex-1 py-3 bg-destructive text-destructive-foreground rounded-full font-medium hover:bg-destructive/90 disabled:opacity-50 transition-colors"
                   >
                     {submittingReport ? 'Submitting...' : 'Submit Report'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showPaymentDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background rounded-xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-foreground">Pay with M-Pesa</h3>
+              <button onClick={() => setShowPaymentDialog(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {paymentSuccess ? (
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Smartphone className="w-8 h-8 text-green-500" />
+                </div>
+                <p className="text-lg font-medium text-foreground">STK Push Sent!</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Check your phone and enter your PIN to confirm payment of KES {product.price.toLocaleString()}
+                </p>
+                <p className="text-xs text-muted-foreground mt-4">
+                  Order: {checkoutRequestId}
+                </p>
+                <button
+                  onClick={() => setShowPaymentDialog(false)}
+                  className="mt-6 py-3 bg-primary text-primary-foreground rounded-full font-medium w-full"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  You will receive an M-Pesa prompt on your phone to confirm payment of <strong>KES {product.price.toLocaleString()}</strong>.
+                </p>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">M-Pesa Phone Number</label>
+                  <input
+                    type="tel"
+                    value={paymentPhone}
+                    onChange={(e) => setPaymentPhone(e.target.value)}
+                    placeholder="2547XX XXX XXX"
+                    className="w-full px-4 py-3 rounded-lg border border-input bg-background text-foreground"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowPaymentDialog(false)}
+                    className="flex-1 py-3 border border-input rounded-full text-foreground hover:bg-muted transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleInitiatePayment}
+                    disabled={initiatingPayment || !paymentPhone}
+                    className="flex-1 py-3 bg-green-600 text-white rounded-full font-medium hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    {initiatingPayment ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>Pay KES {product.price.toLocaleString()}</>
+                    )}
                   </button>
                 </div>
               </div>

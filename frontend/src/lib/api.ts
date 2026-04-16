@@ -206,4 +206,15 @@ export const reportsApi = {
     api.post('/api/v1/reports', data),
 };
 
+export const paymentsApi = {
+  initiate: (data: { product_id: number; phone_number: string }) =>
+    api.post('/api/v1/payments/initiate', data),
+  
+  get: (paymentId: number) =>
+    api.get(`/api/v1/payments/${paymentId}`),
+  
+  checkStatus: (checkoutRequestId: string) =>
+    api.post(`/api/v1/payments/check/${checkoutRequestId}`),
+};
+
 export default api;

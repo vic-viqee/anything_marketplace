@@ -24,6 +24,12 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = ""
 
+    # FluxPay Configuration
+    FLUXPAY_API_URL: str = "https://fluxpay-api.onrender.com"
+    FLUXPAY_API_KEY: str = ""
+    FLUXPAY_API_SECRET: str = ""
+    FLUXPAY_WEBHOOK_SECRET: str = ""
+
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_DEFAULT: str = "100/minute"
     RATE_LIMIT_AUTH: str = "10/minute"
