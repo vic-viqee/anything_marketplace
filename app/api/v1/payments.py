@@ -6,7 +6,7 @@ from app.core.security import get_current_user
 from app.models.models import User, Payment, PaymentStatus, Product, ProductStatus
 from app.services.payment_service import fluxpay_client, FluxPayError
 
-router = APIRouter(prefix="/payments", tags=["payments"])
+router = APIRouter(prefix="/api/v1/payments", tags=["payments"])
 
 
 class InitiatePaymentRequest(BaseModel):
