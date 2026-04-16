@@ -352,6 +352,16 @@ STORAGE_TYPE=local
 CREATE_ADMIN=false
 ADMIN_PHONE=254700000000
 ADMIN_PASSWORD=admin123
+
+# FluxPay M-Pesa Integration (get keys from FluxPay Settings > API Keys)
+FLUXPAY_API_URL=https://fluxpay-api.onrender.com
+FLUXPAY_API_KEY=fpk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+FLUXPAY_API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+FLUXPAY_WEBHOOK_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+FLUXPAY_BUSINESS_SHORTCODE=1234567
+FLUXPAY_CALLBACK_URL=https://anything-marketplace-api.onrender.com/api/v1/webhooks/fluxpay
+MPESA_PASSKEY=your_mpesa_passkey_here
+MPESA_ENV=sandbox
 ```
 
 ### Backend (.env) - Production (Render)
