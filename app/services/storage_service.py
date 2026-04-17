@@ -68,25 +68,10 @@ class CloudinaryStorageService:
     def __init__(self, cloud_name: str = None, api_key: str = None):
         self.cloud_name = cloud_name or os.getenv("CLOUDINARY_CLOUD_NAME", "")
         self.api_key = api_key or os.getenv("CLOUDINARY_API_KEY", "")
-        self._client = None
-
-    @property
-    def client(self):
-        if self._client is None:
-            import cloudinary
-
-            cloudinary.config(
-                cloud_name=self.cloud_name,
-                api_key=self.api_key,
-                api_secret=os.getenv("CLOUDINARY_API_SECRET", ""),
-            )
-            self._client = cloudinary
-        return self._client
 
     def save(self, content: bytes, filename: str) -> str:
         import cloudinary
         import cloudinary.uploader
-        import io
 
         cloudinary.config(
             cloud_name=self.cloud_name,
@@ -102,20 +87,18 @@ class CloudinaryStorageService:
         )
         return result.get("public_id", filename)
 
+    def delete(self, filename: str) -> None:
+        import cloudinary.uploader
 
-def delete(self, filename: str) -> None:
-    import cloudinary.uploader
+        try:
+            cloudinary.uploader.destroy(filename)
+        except Exception:
+            pass
 
-    try:
-        cloudinary.uploader.destroy(filename)
-    except Exception:
-        pass
+    def get_url(self, filename: str) -> str:
+        import cloudinary
 
-
-def get_url(self, filename: str) -> str:
-    import cloudinary
-
-    return cloudinary.url(filename, resource_type="image", secure=True)
+        return cloudinary.url(filename, resource_type="image", secure=True)
 
 
 def get_storage_service() -> StorageService:
