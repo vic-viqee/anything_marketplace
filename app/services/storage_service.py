@@ -1,8 +1,5 @@
 import os
 import uuid
-import hashlib
-import time
-import hmac
 from typing import Protocol, Optional
 from abc import ABC, abstractmethod
 from app.core.config import get_settings
@@ -68,43 +65,22 @@ class S3StorageService:
 
 
 class CloudinaryStorageService:
-    def __init__(self, cloud_name: str = None, api_key: str = None):
+    def __init__(self, cloud_name: str = None):
         self.cloud_name = cloud_name or os.getenv("CLOUDINARY_CLOUD_NAME", "")
-        self.api_key = api_key or os.getenv("CLOUDINARY_API_KEY", "")
-        self.api_secret = os.getenv("CLOUDINARY_API_SECRET", "")
-
-    def _generate_signature(self, timestamp: int, params: dict) -> str:
-        """Generate Cloudinary API signature from all params"""
-        param_str = "&".join(f"{k}={params[k]}" for k in sorted(params.keys()))
-        to_sign = f"{param_str}&timestamp={timestamp}"
-        signature = hmac.new(
-            self.api_secret.encode(), to_sign.encode(), hashlib.sha256
-        ).hexdigest()
-        return signature
+        self.upload_preset = os.getenv("CLOUDINARY_UPLOAD_PRESET", "ml_default")
 
     def save(self, content: bytes, filename: str) -> str:
         import requests
 
-        if not self.cloud_name or not self.api_key:
-            raise ValueError("Cloudinary credentials not configured")
-
-        timestamp = int(time.time())
-
-        params = {
-            "folder": "marketplace",
-            "public_id": filename.split(".")[0],
-        }
-
-        signature = self._generate_signature(timestamp, params)
+        if not self.cloud_name:
+            raise ValueError("Cloudinary cloud name not configured")
 
         url = f"https://api.cloudinary.com/v1_1/{self.cloud_name}/image/upload"
 
         files = {"file": (filename, content, "image/jpeg")}
 
         data = {
-            "api_key": self.api_key,
-            "timestamp": timestamp,
-            "signature": signature,
+            "upload_preset": self.upload_preset,
             "folder": "marketplace",
             "public_id": filename.split(".")[0],
         }
@@ -118,34 +94,11 @@ class CloudinaryStorageService:
         return result.get("public_id", filename)
 
     def delete(self, filename: str) -> None:
-        import requests
-
-        if not self.cloud_name or not self.api_key:
-            return
-
-        timestamp = int(time.time())
-
-        params = {"public_id": filename}
-        signature = self._generate_signature(timestamp, params)
-
-        url = f"https://api.cloudinary.com/v1_1/{self.cloud_name}/image/destroy"
-
-        data = {
-            "api_key": self.api_key,
-            "timestamp": timestamp,
-            "signature": signature,
-            "public_id": filename,
-        }
-
-        try:
-            requests.post(url, data=data, timeout=10)
-        except Exception:
-            pass
+        pass
 
     def get_url(self, filename: str) -> str:
         if not self.cloud_name:
             return filename
-
         return f"https://res.cloudinary.com/{self.cloud_name}/image/upload/{filename}"
 
 
