@@ -34,6 +34,29 @@ def get_seller_verified_status(seller: User) -> bool:
     return is_verified_seller(seller)
 
 
+def compress_image_bytes(
+    content: bytes, max_width: int = 1200, quality: int = 80
+) -> bytes:
+    """Compress image from bytes content"""
+    image = Image.open(BytesIO(content))
+    if image.mode == "RGBA":
+        background = Image.new("RGBA", image.size, (255, 255, 255))
+        background.paste(image, mask=image.split()[3])
+        image = background.convert("RGB")
+    elif image.mode != "RGB":
+        image = image.convert("RGB")
+
+    width, height = image.size
+    if width > max_width:
+        ratio = max_width / width
+        new_height = int(height * ratio)
+        image = image.resize((max_width, new_height), Image.LANCZOS)
+
+    output = BytesIO()
+    image.save(output, format="JPEG", quality=quality, optimize=True)
+    return output.getvalue()
+
+
 def compress_image(file: UploadFile, max_width: int = 1200, quality: int = 80) -> bytes:
     image = Image.open(file.file)
     if image.mode == "RGBA":
@@ -73,7 +96,7 @@ async def save_image(file: UploadFile) -> Optional[str]:
                 detail=f"File too large. Max size: {settings.MAX_UPLOAD_SIZE // (1024 * 1024)}MB",
             )
 
-        image_content = compress_image(file)
+        image_content = compress_image_bytes(content)
         filename = f"{uuid.uuid4()}.jpg"
 
         saved_key = storage_service.save(image_content, filename)
