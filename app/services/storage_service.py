@@ -97,8 +97,15 @@ class CloudinaryStorageService:
 
     def get_url(self, filename: str) -> str:
         import cloudinary
+        import cloudinary.api
 
-        return cloudinary.url(filename, resource_type="image", secure=True)
+        cloudinary.config(
+            cloud_name=self.cloud_name,
+            api_key=self.api_key,
+            api_secret=os.getenv("CLOUDINARY_API_SECRET", ""),
+        )
+
+        return cloudinary.api.url(filename, resource_type="image", secure=True)
 
 
 def get_storage_service() -> StorageService:
