@@ -73,10 +73,14 @@ class CloudinaryStorageService:
         self.api_key = api_key or os.getenv("CLOUDINARY_API_KEY", "")
         self.api_secret = os.getenv("CLOUDINARY_API_SECRET", "")
 
-    def _generate_signature(self, timestamp: int) -> str:
-        """Generate Cloudinary API signature"""
-        signature = f"timestamp={timestamp}{self.api_secret}"
-        return hashlib.sha256(signature.encode()).hexdigest()
+    def _generate_signature(self, timestamp: int, params: dict) -> str:
+        """Generate Cloudinary API signature from all params"""
+        param_str = "&".join(f"{k}={params[k]}" for k in sorted(params.keys()))
+        to_sign = f"{param_str}&timestamp={timestamp}"
+        signature = hmac.new(
+            self.api_secret.encode(), to_sign.encode(), hashlib.sha256
+        ).hexdigest()
+        return signature
 
     def save(self, content: bytes, filename: str) -> str:
         import requests
@@ -85,7 +89,13 @@ class CloudinaryStorageService:
             raise ValueError("Cloudinary credentials not configured")
 
         timestamp = int(time.time())
-        signature = self._generate_signature(timestamp)
+
+        params = {
+            "folder": "marketplace",
+            "public_id": filename.split(".")[0],
+        }
+
+        signature = self._generate_signature(timestamp, params)
 
         url = f"https://api.cloudinary.com/v1_1/{self.cloud_name}/image/upload"
 
@@ -114,7 +124,9 @@ class CloudinaryStorageService:
             return
 
         timestamp = int(time.time())
-        signature = self._generate_signature(timestamp)
+
+        params = {"public_id": filename}
+        signature = self._generate_signature(timestamp, params)
 
         url = f"https://api.cloudinary.com/v1_1/{self.cloud_name}/image/destroy"
 
