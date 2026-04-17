@@ -22,8 +22,14 @@ from app.schemas.schemas import (
 )
 from app.services.websocket_manager import manager, create_message_payload
 from app.api.v1.notifications import create_notification
+from bleach import clean
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
+
+
+def sanitize_message_content(content: str) -> str:
+    allowed_tags = ["b", "i", "u", "em", "strong"]
+    return clean(content, tags=allowed_tags, strip=True)
 
 
 @router.post(
@@ -208,7 +214,7 @@ def send_message(
     message = Message(
         conversation_id=message_data.conversation_id,
         sender_id=current_user.id,
-        content=message_data.content,
+        content=sanitize_message_content(message_data.content),
     )
 
     conversation.last_message_at = datetime.utcnow()

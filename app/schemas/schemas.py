@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional
 from datetime import datetime
+import re
 
 
 class UserBase(BaseModel):
@@ -9,17 +10,49 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=6, max_length=100)
+    password: str = Field(..., min_length=8, max_length=100)
     role: Optional[str] = "customer"
     subscription_tier: Optional[str] = "free"
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Password must contain at least one number")
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
+            raise ValueError("Password must contain at least one special character")
+        return v
 
 
 class UserUpdate(BaseModel):
     username: Optional[str] = Field(None, min_length=3, max_length=50)
-    password: Optional[str] = Field(None, min_length=6, max_length=100)
+    password: Optional[str] = Field(None, min_length=8, max_length=100)
     current_password: Optional[str] = None
     profile_image: Optional[str] = None
     upgrade_to_seller: Optional[bool] = False
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Password must contain at least one number")
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
+            raise ValueError("Password must contain at least one special character")
+        return v
 
 
 class UserResponse(UserBase):
