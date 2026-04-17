@@ -84,23 +84,37 @@ class CloudinaryStorageService:
         return self._client
 
     def save(self, content: bytes, filename: str) -> str:
+        import cloudinary
+        import cloudinary.uploader
         from PIL import Image
         import io
 
+        cloudinary.config(
+            cloud_name=self.cloud_name,
+            api_key=self.api_key,
+            api_secret=os.getenv("CLOUDINARY_API_SECRET", ""),
+        )
+
         image = Image.open(io.BytesIO(content))
-        result = self.client.uploader.upload(
+        result = cloudinary.uploader.upload(
             image, folder="marketplace", public_id=filename.split(".")[0]
         )
         return result.get("public_id", filename)
 
     def delete(self, filename: str) -> None:
+        import cloudinary.uploader
+
         try:
-            self.client.uploader.destroy(filename)
+            cloudinary.uploader.destroy(filename)
         except Exception:
             pass
 
-    def get_url(self, filename: str) -> str:
-        return self.client.url(filename, resource_type="image")
+
+def get_url(self, filename: str) -> str:
+    import cloudinary
+    import cloudinary.api
+
+    return cloudinary.url(filename, resource_type="image")
 
 
 def get_storage_service() -> StorageService:
