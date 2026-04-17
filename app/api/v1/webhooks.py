@@ -42,13 +42,19 @@ async def fluxpay_webhook(
     body = raw_body.decode()
     payload_json = await request.json()
 
-    # Fix 1: Verify webhook signature
-    if not verify_webhook_signature(
-        body, x_webhook_signature, settings.FLUXPAY_WEBHOOK_SECRET
-    ):
-        print(f"Invalid webhook signature: {x_webhook_signature}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature"
+    # Fix 1: Verify webhook signature (only if secret is configured)
+    if settings.FLUXPAY_WEBHOOK_SECRET:
+        if not verify_webhook_signature(
+            body, x_webhook_signature, settings.FLUXPAY_WEBHOOK_SECRET
+        ):
+            print(f"Invalid webhook signature: {x_webhook_signature}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid webhook signature",
+            )
+    else:
+        print(
+            "WARNING: FLUXPAY_WEBHOOK_SECRET not configured - skipping signature verification"
         )
 
     event = payload_json.get("event")
