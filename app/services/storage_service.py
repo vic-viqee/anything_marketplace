@@ -1,5 +1,5 @@
 import os
-import uuid
+import io
 from typing import Protocol, Optional
 from abc import ABC, abstractmethod
 from app.core.config import get_settings
@@ -65,41 +65,49 @@ class S3StorageService:
 
 
 class CloudinaryStorageService:
-    def __init__(self, cloud_name: str = None):
-        self.cloud_name = cloud_name or os.getenv("CLOUDINARY_CLOUD_NAME", "")
-        self.upload_preset = os.getenv("CLOUDINARY_UPLOAD_PRESET", "ml_default")
+    def __init__(self):
+        cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+        api_key = os.getenv("CLOUDINARY_API_KEY", "")
+        api_secret = os.getenv("CLOUDINARY_API_SECRET", "")
+
+        if not cloud_name:
+            raise ValueError("CLOUDINARY_CLOUD_NAME not configured")
+
+        import cloudinary
+
+        cloudinary.config(
+            cloud_name=cloud_name,
+            api_key=api_key,
+            api_secret=api_secret,
+            secure=True,
+        )
+
+        self._cloudinary = cloudinary
 
     def save(self, content: bytes, filename: str) -> str:
-        import requests
+        import cloudinary
+        import cloudinary.uploader
 
-        if not self.cloud_name:
-            raise ValueError("Cloudinary cloud name not configured")
-
-        url = f"https://api.cloudinary.com/v1_1/{self.cloud_name}/image/upload"
-
-        files = {"file": (filename, content, "image/jpeg")}
-
-        data = {
-            "upload_preset": self.upload_preset,
-            "folder": "marketplace",
-            "public_id": filename.split(".")[0],
-        }
-
-        response = requests.post(url, files=files, data=data, timeout=30)
-
-        if response.status_code != 200:
-            raise Exception(f"Cloudinary upload failed: {response.text}")
-
-        result = response.json()
+        result = cloudinary.uploader.upload(
+            io.BytesIO(content),
+            folder="marketplace",
+            public_id=filename.split(".")[0],
+            resource_type="image",
+        )
         return result.get("public_id", filename)
 
     def delete(self, filename: str) -> None:
-        pass
+        import cloudinary.uploader
+
+        try:
+            cloudinary.uploader.destroy(filename)
+        except Exception:
+            pass
 
     def get_url(self, filename: str) -> str:
-        if not self.cloud_name:
-            return filename
-        return f"https://res.cloudinary.com/{self.cloud_name}/image/upload/{filename}"
+        import cloudinary
+
+        return cloudinary.url(filename, resource_type="image")
 
 
 def get_storage_service() -> StorageService:
