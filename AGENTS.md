@@ -19,6 +19,8 @@
 - Product search (title/description)
 - Post ads with images (auto-compressed to 1200px max)
 - Product approval system (admin moderates before live)
+- **Seller verification** - Sellers require manual admin verification before posting
+- WhatsApp-style chat with read receipts (single tick sent, double tick read)
 - Built-in P2P chat messaging (WebSocket-enabled, real-time)
 - In-app notifications (product approved/rejected)
 - Mark items as sold
@@ -26,17 +28,19 @@
 - User profiles with photo, username, password management
 - Dark/light mode theming
 - Product detail page with seller info
-- Contact seller via inbuilt chat or WhatsApp
-- Admin dashboard with analytics, bulk actions, activity logs
+- Contact seller via inbuilt chat or WhatsApp (pre-filled messages with phone numbers)
+- Admin dashboard with analytics, bulk actions, activity logs, seller verification
 - Support ticket system (reports, disputes)
 - CSV export for users/products
 - JWT token invalidation on password change
 - Rate limiting on auth endpoints
+- Edge case validation (title 3-100 chars, price 0-100M, description max 2000 chars)
+- Auto-migration on startup for missing database columns
 
 ### User Roles
 - **Customer**: Browse, message sellers, rate after purchase
-- **Seller**: Customer + post listings
-- **Admin**: All abilities + approve/reject products, manage users, view analytics
+- **Seller**: Customer + post listings (requires admin verification)
+- **Admin**: All abilities + approve/reject products, manage users, verify sellers, view analytics
 
 ---
 
@@ -184,6 +188,10 @@ frontend/src/
 - `profile_image` (nullable)
 - `role` (enum: customer/seller/admin)
 - `is_active` (boolean)
+- `is_identity_verified` (boolean - requires admin verification for sellers)
+- `subscription_tier`, `subscription_expires_at`
+- `kyc_status`, `kyc_id_number`, `kyc_id_front_url`, `kyc_selfie_url`
+- `is_suspended`, `suspension_reason`
 - `created_at`, `updated_at`
 
 ### Products Table
@@ -192,6 +200,7 @@ frontend/src/
 - `image_url` (nullable)
 - `status` (enum: available/sold/archived)
 - `is_approved` (boolean)
+- `is_featured`, `featured_until`, `featured_by_admin`
 - `seller_id` (FK to users)
 - `category_id` (FK to categories, nullable)
 - `created_at`, `updated_at`, `sold_at`
@@ -209,7 +218,7 @@ frontend/src/
 ### Messages Table
 - `id` (PK)
 - `conversation_id`, `sender_id`
-- `content`, `is_read`
+- `content`, `is_read`, `is_delivered`
 - `created_at`
 
 ### Ratings Table
@@ -226,6 +235,17 @@ frontend/src/
 - `is_read` (boolean)
 - `related_id` (nullable - links to related entity)
 - `created_at`
+
+### ActivityLog Table
+- `id` (PK)
+- `user_id`, `action`, `entity_type`, `entity_id`, `details`
+- `created_at`
+
+### Reports Table
+- `id` (PK)
+- `reporter_id`, `reported_user_id`, `reported_product_id`, `reported_conversation_id`
+- `reason`, `description`, `status`
+- `created_at`, `updated_at`
 
 ---
 
@@ -283,11 +303,14 @@ frontend/src/
 | GET | /users | List users (with search/filter) | Admin |
 | PATCH | /users/{id}/role | Update role | Admin |
 | PATCH | /users/{id}/deactivate | Toggle user status | Admin |
+| POST | /users/{id}/verify | Verify seller | Admin |
+| POST | /users/{id}/unverify | Revoke seller verification | Admin |
 | DELETE | /users/{id} | Delete user | Admin |
 | DELETE | /products/{id} | Delete product | Admin |
 | GET | /export/users.csv | Export users as CSV | Admin |
 | GET | /export/products.csv | Export products as CSV | Admin |
 | POST | /notify | Send notification to user | Admin |
+| POST | /migrate | Run database migrations | Admin |
 
 ---
 
@@ -452,3 +475,6 @@ if (!isAuthenticated) router.push('/login');
 4. **No placeholders** - implement complete, working code
 5. **No hardcoded secrets** - use environment variables
 6. **Frontend runs on :3000, Backend on :8000**
+7. **Seller verification flow** - Sellers must be verified by admin before posting. WhatsApp links include phone numbers for easy contact.
+8. **Messaging read receipts** - Messages show ✓ (sent) and ✓✓ (read) like WhatsApp. `is_delivered` field tracks delivery status.
+9. **Auto-migration** - `run_migrations()` in `main.py` runs on startup to add missing columns and clean invalid data.
