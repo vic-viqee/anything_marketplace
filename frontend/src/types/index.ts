@@ -10,6 +10,7 @@ export interface User {
   subscription_expires_at?: string;
   kyc_status: string;
   is_verified: boolean;
+  pending_kyc: boolean;
   featured_listings_used: number;
   featured_listings_limit: number;
   created_at: string;

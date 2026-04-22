@@ -120,6 +120,12 @@ async def create_product(
             detail="Only sellers can post products",
         )
 
+    if current_user.kyc_status != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="KYC verification required. Please submit your ID documents for verification before posting products.",
+        )
+
     # Edge case validation
     title = title.strip()
     if len(title) < 3:

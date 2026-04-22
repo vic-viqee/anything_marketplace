@@ -103,6 +103,7 @@ def user_to_response(user: User) -> UserResponse:
         subscription_expires_at=user.subscription_expires_at,
         kyc_status=user.kyc_status,
         is_verified=is_verified_seller(user),
+        pending_kyc=user.role == UserRole.SELLER and user.kyc_status == "none",
         featured_listings_used=user.featured_listings_used_this_month or 0,
         featured_listings_limit=get_featured_limit(user.subscription_tier),
         created_at=user.created_at,

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { productsApi } from '@/lib/api';
 import { useAuthStore } from '@/context/auth-store';
 import { Category, ApiError } from '@/types';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, ShieldCheck } from 'lucide-react';
 
 export default function PostAd() {
   const [title, setTitle] = useState('');
@@ -20,7 +20,7 @@ export default function PostAd() {
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const { isAuthenticated, isSeller } = useAuthStore();
+  const { isAuthenticated, isSeller, pendingKyc } = useAuthStore();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -54,6 +54,26 @@ export default function PostAd() {
           className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors"
         >
           Upgrade to Seller
+        </button>
+      </div>
+    );
+  }
+
+  if (pendingKyc) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full mb-6">
+          <ShieldCheck className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+        </div>
+        <h2 className="font-serif text-2xl text-foreground mb-2">ID Verification Required</h2>
+        <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+          Your documents are being reviewed. You&apos;ll be able to post products once verification is complete.
+        </p>
+        <button
+          onClick={() => router.push('/profile')}
+          className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors"
+        >
+          Go to Profile
         </button>
       </div>
     );
