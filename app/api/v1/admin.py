@@ -1082,3 +1082,46 @@ def update_report(
         f"Updated status to {status}",
     )
     return {"message": "Report updated"}
+
+
+@router.post("/migrate")
+def run_migration(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Run database migrations for missing columns."""
+    from sqlalchemy import text
+
+    migrations = [
+        ("users", "is_identity_verified", "BOOLEAN DEFAULT FALSE"),
+        ("users", "pending_tier", "VARCHAR(20)"),
+        ("users", "pending_payment_checkout_id", "VARCHAR(100)"),
+        ("users", "payment_pending_at", "TIMESTAMP WITH TIME ZONE"),
+        ("products", "is_featured", "BOOLEAN DEFAULT FALSE"),
+        ("products", "featured_until", "TIMESTAMP WITH TIME ZONE"),
+        ("products", "featured_by_admin", "BOOLEAN DEFAULT FALSE"),
+    ]
+
+    results = []
+    for table, column, col_type in migrations:
+        try:
+            result = db.execute(
+                text(f"""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = '{table}' AND column_name = '{column}'
+            """)
+            )
+            if result.fetchone() is None:
+                db.execute(
+                    text(f"""
+                    ALTER TABLE {table} ADD COLUMN {column} {col_type}
+                """)
+                )
+                results.append(f"Added {column} to {table}")
+            else:
+                results.append(f"{column} already exists")
+        except Exception as e:
+            results.append(f"Error adding {column}: {str(e)}")
+
+    db.commit()
+    return {"results": results}

@@ -20,6 +20,8 @@ def migrate():
         ("users", "subscription_expires_at", "TIMESTAMP WITH TIME ZONE"),
         ("users", "featured_listings_used_this_month", "INTEGER DEFAULT 0"),
         ("users", "featured_listings_reset_at", "TIMESTAMP WITH TIME ZONE"),
+        # Users table - identity verification
+        ("users", "is_identity_verified", "BOOLEAN DEFAULT FALSE"),
         # Users table - KYC fields
         ("users", "kyc_status", "VARCHAR(20) DEFAULT 'none'"),
         ("users", "kyc_id_number", "VARCHAR(50)"),
@@ -31,6 +33,10 @@ def migrate():
         # Users table - suspension
         ("users", "is_suspended", "BOOLEAN DEFAULT FALSE"),
         ("users", "suspension_reason", "TEXT"),
+        # Users table - pending payment
+        ("users", "pending_tier", "VARCHAR(20)"),
+        ("users", "pending_payment_checkout_id", "VARCHAR(100)"),
+        ("users", "payment_pending_at", "TIMESTAMP WITH TIME ZONE"),
         # Products table - featured fields
         ("products", "is_featured", "BOOLEAN DEFAULT FALSE"),
         ("products", "featured_until", "TIMESTAMP WITH TIME ZONE"),
