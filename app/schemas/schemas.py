@@ -65,7 +65,7 @@ class UserResponse(UserBase):
     subscription_expires_at: Optional[datetime] = None
     kyc_status: str = "none"
     is_verified: bool = False
-    pending_kyc: bool = False
+    is_identity_verified: bool = False
     featured_listings_used: int = 0
     featured_listings_limit: int = 2
     created_at: datetime

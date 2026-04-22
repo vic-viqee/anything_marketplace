@@ -4,8 +4,8 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/context/auth-store';
 import { adminApi, productsApi } from '@/lib/api';
-import { User, Product, Analytics, Rating, Ticket, ActivityLog, Category, AdminTab, ApiError, KYCSubmission, Subscription, Report } from '@/types';
-import { Users, Package, Check, X, Trash2, AlertCircle, Ticket as TicketIcon, Star, Bell, Search, History, Folder, CreditCard, Flag, FileCheck } from 'lucide-react';
+import { User, Product, Analytics, Rating, Ticket, ActivityLog, Category, AdminTab, ApiError, Subscription, Report } from '@/types';
+import { Users, Package, Check, X, Trash2, AlertCircle, Ticket as TicketIcon, Star, Bell, Search, History, Folder, CreditCard, Flag, ShieldCheck } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +21,6 @@ function AdminContent() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [kycSubmissions, setKycSubmissions] = useState<KYCSubmission[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,6 +31,7 @@ function AdminContent() {
   const [error, setError] = useState<string | null>(null);
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [unverifiedSellersCount, setUnverifiedSellersCount] = useState(0);
 
   useEffect(() => {
     if (!isAuthenticated || !isAdmin) {
@@ -93,13 +93,6 @@ function AdminContent() {
     } catch {}
   };
 
-  const loadKYCSubmissions = async () => {
-    try {
-      const res = await adminApi.getPendingKYC();
-      setKycSubmissions(res.data);
-    } catch {}
-  };
-
   const loadSubscriptions = async (tier?: string) => {
     try {
       const res = await adminApi.getSubscriptions({ tier });
@@ -114,27 +107,27 @@ function AdminContent() {
     } catch {}
   };
 
-  const handleApproveKYC = async (userId: number) => {
+  const handleVerifySeller = async (userId: number) => {
     setActionLoading(userId);
     try {
-      await adminApi.approveKYC(userId);
-      loadKYCSubmissions();
+      await adminApi.verifySeller(userId);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_identity_verified: true } : u));
     } catch (err) {
       const e = err as ApiError;
-      setError(e.response?.data?.detail || 'Failed to approve KYC');
+      setError(e.response?.data?.detail || 'Failed to verify seller');
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleRejectKYC = async (userId: number, reason: string) => {
+  const handleUnverifySeller = async (userId: number) => {
     setActionLoading(userId);
     try {
-      await adminApi.rejectKYC(userId, reason);
-      loadKYCSubmissions();
+      await adminApi.unverifySeller(userId);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_identity_verified: false } : u));
     } catch (err) {
       const e = err as ApiError;
-      setError(e.response?.data?.detail || 'Failed to reject KYC');
+      setError(e.response?.data?.detail || 'Failed to unverify seller');
     } finally {
       setActionLoading(null);
     }
@@ -198,9 +191,9 @@ function AdminContent() {
     if (activeTab === 'tickets') loadTickets();
     if (activeTab === 'activity') loadActivityLogs();
     if (activeTab === 'categories') loadCategories();
-    if (activeTab === 'kyc') loadKYCSubmissions();
     if (activeTab === 'subscriptions') loadSubscriptions();
     if (activeTab === 'reports') loadReports();
+    if (activeTab === 'users') setUnverifiedSellersCount(users.filter(u => u.role === 'seller' && !u.is_identity_verified).length);
   }, [activeTab]);
 
   const handleBroadcast = async () => {
@@ -342,8 +335,7 @@ function AdminContent() {
   const tabs: Array<{ id: AdminTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number }> = [
     { id: 'analytics', label: 'Analytics', icon: AlertCircle },
     { id: 'products', label: 'Products', icon: Package },
-    { id: 'users', label: 'Users', icon: Users },
-    { id: 'kyc', label: 'KYC', icon: FileCheck, count: kycSubmissions.length },
+    { id: 'users', label: 'Users', icon: Users, count: unverifiedSellersCount },
     { id: 'subscriptions', label: 'Subscriptions', icon: CreditCard },
     { id: 'reports', label: 'Reports', icon: Flag, count: reports.filter(r => r.status === 'open').length },
     { id: 'tickets', label: 'Tickets', icon: TicketIcon, count: tickets.filter(t => t.status === 'open').length },
@@ -522,6 +514,7 @@ function AdminContent() {
                       <th className="text-left p-4 text-sm font-medium">Phone</th>
                       <th className="text-left p-4 text-sm font-medium">Username</th>
                       <th className="text-left p-4 text-sm font-medium">Role</th>
+                      <th className="text-left p-4 text-sm font-medium">Verified</th>
                       <th className="text-left p-4 text-sm font-medium">Status</th>
                       <th className="text-left p-4 text-sm font-medium">Actions</th>
                     </tr>
@@ -537,6 +530,19 @@ function AdminContent() {
                             <option value="seller">Seller</option>
                             <option value="admin">Admin</option>
                           </select>
+                        </td>
+                        <td className="p-4">
+                          {user.role === 'seller' && (
+                            user.is_identity_verified ? (
+                              <button onClick={() => handleUnverifySeller(user.id)} disabled={actionLoading === user.id} className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 disabled:opacity-50">
+                                <Check className="w-4 h-4" /> Verified
+                              </button>
+                            ) : (
+                              <button onClick={() => handleVerifySeller(user.id)} disabled={actionLoading === user.id} className="flex items-center gap-1 px-2 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50">
+                                <ShieldCheck className="w-4 h-4" /> Verify
+                              </button>
+                            )
+                          )}
                         </td>
                         <td className="p-4">
                           <span className={`text-sm ${user.is_active ? 'text-green-600' : 'text-destructive'}`}>
@@ -687,44 +693,6 @@ function AdminContent() {
                   {categories.map((cat: Category) => (
                     <div key={cat.id} className="bg-card px-4 py-2 rounded-lg border border-border">
                       <span className="text-foreground">{cat.name}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'kyc' && (
-            <div>
-              <h2 className="text-xl font-medium mb-4">KYC Submissions</h2>
-              {kycSubmissions.length === 0 ? (
-                <div className="text-center py-20 text-muted-foreground">No pending KYC submissions</div>
-              ) : (
-                <div className="space-y-4">
-                  {kycSubmissions.map((kyc) => (
-                    <div key={kyc.id} className="bg-card p-4 rounded-lg border border-border">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-medium">@{kyc.username || kyc.phone}</p>
-                          <p className="text-sm text-muted-foreground">ID: {kyc.kyc_id_number || 'Not provided'}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          {kyc.kyc_id_front_url && (
-                            <a href={kyc.kyc_id_front_url} target="_blank" rel="noopener noreferrer" className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded">View ID</a>
-                          )}
-                          {kyc.kyc_selfie_url && (
-                            <a href={kyc.kyc_selfie_url} target="_blank" rel="noopener noreferrer" className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded">View Selfie</a>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleApproveKYC(kyc.id)} disabled={actionLoading === kyc.id} className="px-4 py-2 bg-green-500 text-white rounded-lg disabled:opacity-50">
-                          Approve
-                        </button>
-                        <button onClick={() => { const reason = prompt('Rejection reason:'); if (reason) handleRejectKYC(kyc.id, reason); }} disabled={actionLoading === kyc.id} className="px-4 py-2 bg-red-500 text-white rounded-lg disabled:opacity-50">
-                          Reject
-                        </button>
-                      </div>
                     </div>
                   ))}
                 </div>

@@ -158,7 +158,9 @@ export const adminApi = {
   
   getPendingKYC: () => api.get('/api/v1/admin/kyc/pending'),
   
-  approveKYC: (userId: number) => api.post(`/api/v1/admin/kyc/${userId}/approve`),
+  verifySeller: (userId: number) => api.post(`/api/v1/admin/users/${userId}/verify`),
+  
+  unverifySeller: (userId: number) => api.post(`/api/v1/admin/users/${userId}/unverify`),
   
   rejectKYC: (userId: number, reason: string) => api.post(`/api/v1/admin/kyc/${userId}/reject?reason=${encodeURIComponent(reason)}`),
   

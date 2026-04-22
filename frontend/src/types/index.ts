@@ -10,7 +10,7 @@ export interface User {
   subscription_expires_at?: string;
   kyc_status: string;
   is_verified: boolean;
-  pending_kyc: boolean;
+  is_identity_verified: boolean;
   featured_listings_used: number;
   featured_listings_limit: number;
   created_at: string;
@@ -167,17 +167,6 @@ export interface Report {
   resolved_at?: string;
 }
 
-export interface KYCSubmission {
-  id: number;
-  phone: string;
-  username: string | null;
-  role: string;
-  kyc_id_number?: string;
-  kyc_id_front_url?: string;
-  kyc_selfie_url?: string;
-  kyc_submitted_at?: string;
-}
-
 export interface Subscription {
   id: number;
   phone: string;
@@ -208,7 +197,7 @@ export interface ActivityLog {
   created_at: string;
 }
 
-export type AdminTab = 'analytics' | 'products' | 'users' | 'kyc' | 'subscriptions' | 'reports' | 'tickets' | 'reviews' | 'broadcast' | 'activity' | 'categories';
+export type AdminTab = 'analytics' | 'products' | 'users' | 'subscriptions' | 'reports' | 'tickets' | 'reviews' | 'broadcast' | 'activity' | 'categories';
 
 export type ReportReason = 'fake_product' | 'scam' | 'harassment' | 'wrong_category' | 'spam' | 'other';
 

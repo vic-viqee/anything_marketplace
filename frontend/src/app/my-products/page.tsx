@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { productsApi } from '@/lib/api';
 import { useAuthStore } from '@/context/auth-store';
-import { Clock, CheckCircle, ArrowLeft, Package, Star, Crown, Zap, Shield, ShieldCheck } from 'lucide-react';
+import { Clock, CheckCircle, ArrowLeft, Package, Star, Crown, Zap, Shield, ShieldCheck, MessageCircle } from 'lucide-react';
 
 interface MyProduct {
   id: number;
@@ -46,11 +46,6 @@ export default function MyProducts() {
 
     if (user?.role === 'customer') {
       router.push('/');
-      return;
-    }
-
-    if (user?.pending_kyc) {
-      router.push('/profile');
       return;
     }
 
@@ -115,22 +110,25 @@ export default function MyProducts() {
     return null;
   }
 
-  if (user?.pending_kyc) {
+  if (!user?.is_identity_verified) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full mb-6">
           <ShieldCheck className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
         </div>
-        <h2 className="font-serif text-2xl text-foreground mb-2">ID Verification Required</h2>
+        <h2 className="font-serif text-2xl text-foreground mb-2">Account Not Verified</h2>
         <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-          Your documents are being reviewed. You&apos;ll be able to post products once verification is complete.
+          Your account needs to be verified before you can post products. Contact admin on WhatsApp to get verified.
         </p>
-        <button
-          onClick={() => router.push('/profile')}
-          className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover:bg-primary/90 transition-colors"
+        <a
+          href="https://wa.me/254700000000"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-green-500 text-white rounded-full font-medium hover:bg-green-600 transition-colors"
         >
-          Go to Profile
-        </button>
+          <MessageCircle className="w-5 h-5" />
+          Contact Admin on WhatsApp
+        </a>
       </div>
     );
   }

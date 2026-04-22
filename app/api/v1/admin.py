@@ -796,34 +796,70 @@ def reject_kyc(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="KYC review is currently disabled",
+    )
+
+
+@router.post("/users/{user_id}/verify")
+def verify_seller(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    user.kyc_status = "rejected"
-    user.kyc_rejection_reason = reason
-    user.kyc_reviewed_at = datetime.utcnow()
+    user.is_identity_verified = True
     db.commit()
 
     create_notification(
         db,
         user_id=user.id,
         notification_type=NotificationType.NEW_MESSAGE,
-        title="KYC Rejected",
-        message=f"Your identity verification was rejected. Reason: {reason}. Please submit new documents.",
+        title="Account Verified",
+        message="Your account has been verified. You can now post products.",
     )
 
     log_activity(
         db,
         admin.id,
-        "reject_kyc",
+        "verify_seller",
         "user",
         user_id,
-        f"Rejected KYC for user {user.username or user.phone}",
+        f"Verified seller account for {user.username or user.phone}",
     )
-    return {"message": "KYC rejected"}
+    return {"message": "Seller verified"}
+
+
+@router.post("/users/{user_id}/unverify")
+def unverify_seller(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    user.is_identity_verified = False
+    db.commit()
+
+    log_activity(
+        db,
+        admin.id,
+        "unverify_seller",
+        "user",
+        user_id,
+        f"Unverified seller account for {user.username or user.phone}",
+    )
+    return {"message": "Seller unverified"}
 
 
 @router.patch("/users/{user_id}/subscription")

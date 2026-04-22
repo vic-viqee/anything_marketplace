@@ -120,10 +120,10 @@ async def create_product(
             detail="Only sellers can post products",
         )
 
-    if current_user.kyc_status != "approved":
+    if current_user.role == UserRole.SELLER and not current_user.is_identity_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="KYC verification required. Please submit your ID documents for verification before posting products.",
+            detail="Your account is not yet verified. Please contact admin for manual verification.",
         )
 
     # Edge case validation

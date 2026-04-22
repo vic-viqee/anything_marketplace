@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/context/auth-store';
 import { authApi, ticketsApi } from '@/lib/api';
 import { ApiError } from '@/types';
-import { LogOut, User, Settings, Camera, Shield, Star, Crown, Zap, CreditCard, CheckCircle, Clock, XCircle, Upload, ShieldCheck } from 'lucide-react';
+import { LogOut, User, Settings, Camera, Shield, Star, Crown, Zap, CreditCard, CheckCircle, Clock, XCircle } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -32,117 +32,6 @@ async function compressImage(file: File): Promise<Blob> {
     };
     reader.readAsDataURL(file);
   });
-}
-
-function KYCUploader() {
-  const [idFront, setIdFront] = useState<File | null>(null);
-  const [selfie, setSelfie] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [idFrontPreview, setIdFrontPreview] = useState<string | null>(null);
-  const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
-  const { setAuth } = useAuthStore();
-  const idFrontRef = useRef<HTMLInputElement>(null);
-  const selfieRef = useRef<HTMLInputElement>(null);
-
-  const handleSubmit = async () => {
-    if (!idFront || !selfie) {
-      setError('Please upload both ID document and selfie');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const res = await authApi.uploadKYC(idFront, selfie);
-      setSuccess('Documents submitted! Your verification is being reviewed.');
-      const token = localStorage.getItem('access_token');
-      if (token) {
-        setAuth(res.data, token);
-      }
-    } catch (err) {
-      const e = err as ApiError;
-      setError(e.response?.data?.detail || 'Failed to upload documents');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">ID Document (Front)</label>
-        <input type="file" ref={idFrontRef} accept="image/*" onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) {
-            setIdFront(file);
-            setIdFrontPreview(URL.createObjectURL(file));
-          }
-        }} className="hidden" />
-        <button
-          type="button"
-          onClick={() => idFrontRef.current?.click()}
-          className="w-full aspect-[3/2] flex flex-col items-center justify-center border-2 border-dashed border-input rounded-lg text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-        >
-          {idFrontPreview ? (
-            <img src={idFrontPreview} alt="ID Front" className="w-full h-full object-cover rounded-lg" />
-          ) : (
-            <>
-              <Upload className="w-6 h-6 mb-2" />
-              <span className="text-sm">Upload ID document</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Selfie</label>
-        <input type="file" ref={selfieRef} accept="image/*" onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) {
-            setSelfie(file);
-            setSelfiePreview(URL.createObjectURL(file));
-          }
-        }} className="hidden" />
-        <button
-          type="button"
-          onClick={() => selfieRef.current?.click()}
-          className="w-full aspect-[3/2] flex flex-col items-center justify-center border-2 border-dashed border-input rounded-lg text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-        >
-          {selfiePreview ? (
-            <img src={selfiePreview} alt="Selfie" className="w-full h-full object-cover rounded-lg" />
-          ) : (
-            <>
-              <Upload className="w-6 h-6 mb-2" />
-              <span className="text-sm">Upload selfie</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {error && (
-        <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="p-3 bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400 text-sm">
-          {success}
-        </div>
-      )}
-
-      <button
-        onClick={handleSubmit}
-        disabled={loading || !idFront || !selfie}
-        className="w-full py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-      >
-        {loading ? 'Uploading...' : 'Submit Documents'}
-      </button>
-    </div>
-  );
 }
 
 function ProfileContent() {
@@ -579,37 +468,21 @@ function ProfileContent() {
           </div>
 
           <div className="border border-border rounded-xl p-6">
-            <h4 className="font-medium text-foreground mb-4">Identity Verification (KYC)</h4>
-            {user?.kyc_status === 'approved' ? (
+            <h4 className="font-medium text-foreground mb-4">Seller Verification</h4>
+            {user?.is_identity_verified ? (
               <div className="flex items-center gap-3 text-green-600">
                 <CheckCircle className="w-5 h-5" />
-                <span>Verified - Your identity has been confirmed</span>
-              </div>
-            ) : user?.kyc_status === 'submitted' ? (
-              <div className="flex items-center gap-3 text-yellow-600">
-                <Clock className="w-5 h-5" />
-                <span>Documents being reviewed - You&apos;ll be able to post products once approved</span>
-              </div>
-            ) : user?.kyc_status === 'rejected' ? (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3 text-red-600">
-                  <XCircle className="w-5 h-5" />
-                  <span>Verification rejected - Please resubmit your documents</span>
-                </div>
-                <KYCUploader />
+                <span>Verified - You can post products</span>
               </div>
             ) : user?.role === 'seller' ? (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <ShieldCheck className="w-5 h-5" />
-                  <span>Submit your ID to start posting products</span>
-                </div>
-                <KYCUploader />
+              <div className="flex items-center gap-3 text-yellow-600">
+                <Clock className="w-5 h-5" />
+                <span>Pending verification - Contact admin to get verified</span>
               </div>
             ) : (
               <div className="flex items-center gap-3 text-muted-foreground">
                 <Clock className="w-5 h-5" />
-                <span>Upgrade to seller to submit verification</span>
+                <span>Upgrade to seller to start selling</span>
               </div>
             )}
           </div>

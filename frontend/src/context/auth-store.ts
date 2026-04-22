@@ -8,9 +8,6 @@ interface AuthState {
   isAuthenticated: boolean;
   isSeller: boolean;
   isAdmin: boolean;
-  pendingKyc: boolean;
-  kycStatus: string;
-  isVerified: boolean;
   setAuth: (user: User, token: string) => void;
   logout: () => void;
 }
@@ -23,9 +20,6 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isSeller: false,
       isAdmin: false,
-      pendingKyc: false,
-      kycStatus: 'none',
-      isVerified: false,
       setAuth: (user, token) => {
         localStorage.setItem('access_token', token);
         set({ 
@@ -34,19 +28,16 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
           isSeller: user.role === 'seller',
           isAdmin: user.role === 'admin',
-          pendingKyc: user.pending_kyc || false,
-          kycStatus: user.kyc_status || 'none',
-          isVerified: user.is_verified || false,
         });
       },
       logout: () => {
         localStorage.removeItem('access_token');
-        set({ user: null, token: null, isAuthenticated: false, isSeller: false, isAdmin: false, pendingKyc: false, kycStatus: 'none', isVerified: false });
+        set({ user: null, token: null, isAuthenticated: false, isSeller: false, isAdmin: false });
       },
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ user: state.user, token: state.token, isAuthenticated: state.isAuthenticated, isSeller: state.isSeller, isAdmin: state.isAdmin, pendingKyc: state.pendingKyc, kycStatus: state.kycStatus, isVerified: state.isVerified }),
+      partialize: (state) => ({ user: state.user, token: state.token, isAuthenticated: state.isAuthenticated, isSeller: state.isSeller, isAdmin: state.isAdmin }),
     }
   )
 );

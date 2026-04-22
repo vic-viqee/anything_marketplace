@@ -53,7 +53,10 @@ class User(Base):
     featured_listings_used_this_month = Column(Integer, default=0)
     featured_listings_reset_at = Column(DateTime(timezone=True), nullable=True)
 
-    # KYC fields
+    # Identity verification (manual admin verification)
+    is_identity_verified = Column(Boolean, default=False)
+
+    # KYC fields (kept for records but not used in flow)
     kyc_status = Column(String(20), default=KYCStatus.NONE.value)
     kyc_id_number = Column(String(50), nullable=True)
     kyc_id_front_url = Column(String(500), nullable=True)

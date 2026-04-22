@@ -103,7 +103,7 @@ def user_to_response(user: User) -> UserResponse:
         subscription_expires_at=user.subscription_expires_at,
         kyc_status=user.kyc_status,
         is_verified=is_verified_seller(user),
-        pending_kyc=user.role == UserRole.SELLER and user.kyc_status == "none",
+        is_identity_verified=user.is_identity_verified,
         featured_listings_used=user.featured_listings_used_this_month or 0,
         featured_listings_limit=get_featured_limit(user.subscription_tier),
         created_at=user.created_at,
@@ -370,53 +370,10 @@ async def upload_kyc(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role.value != "seller":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only sellers can submit KYC",
-        )
-
-    if current_user.kyc_status == "approved":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="KYC already approved",
-        )
-
-    for file, field_name in [(id_front, "ID document"), (selfie, "selfie")]:
-        file_ext = (
-            file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
-        )
-        if file_ext not in ["jpg", "jpeg", "png"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid file type for {field_name}",
-            )
-
-        content = await file.read()
-        if len(content) > settings.MAX_UPLOAD_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"{field_name} too large",
-            )
-
-    id_content = await id_front.read()
-    id_filename = f"kyc_id_{current_user.id}_{uuid.uuid4()}.jpg"
-    id_saved = storage_service.save(compress_image_bytes(id_content), id_filename)
-    current_user.kyc_id_front_url = storage_service.get_url(id_saved)
-
-    selfie_content = await selfie.read()
-    selfie_filename = f"kyc_selfie_{current_user.id}_{uuid.uuid4()}.jpg"
-    selfie_saved = storage_service.save(
-        compress_image_bytes(selfie_content), selfie_filename
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="KYC upload is currently disabled. Contact admin for manual verification.",
     )
-    current_user.kyc_selfie_url = storage_service.get_url(selfie_saved)
-
-    current_user.kyc_status = "submitted"
-    current_user.kyc_submitted_at = func.now()
-
-    db.commit()
-    db.refresh(current_user)
-    return user_to_response(current_user)
 
 
 class MpesaCallback(BaseModel):
