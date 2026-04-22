@@ -120,6 +120,35 @@ async def create_product(
             detail="Only sellers can post products",
         )
 
+    # Edge case validation
+    title = title.strip()
+    if len(title) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Title must be at least 3 characters",
+        )
+    if len(title) > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Title cannot exceed 100 characters",
+        )
+    if price < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Price cannot be negative",
+        )
+    if price > 100000000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Price cannot exceed 100,000,000",
+        )
+
+    if description and len(description) > 2000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Description cannot exceed 2000 characters",
+        )
+
     image_url = None
     if image:
         image_url = await save_image(image)
