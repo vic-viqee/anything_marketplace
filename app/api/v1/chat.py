@@ -177,6 +177,9 @@ def get_conversation_messages(
             "sender_id": m.sender_id,
             "content": m.content,
             "is_read": m.is_read,
+            "message_status": "read"
+            if m.is_read
+            else ("sent" if m.is_delivered else "sent"),
             "created_at": m.created_at.isoformat(),
         }
         for m in messages
@@ -232,9 +235,13 @@ def send_message(
     payload = create_message_payload(
         "new_message",
         {
+            "id": message.id,
             "conversation_id": conversation.id,
             "sender_id": current_user.id,
             "content": message_data.content,
+            "is_read": False,
+            "message_status": "sent",
+            "created_at": message.created_at.isoformat(),
         },
     )
     asyncio.create_task(manager.send_personal_message(payload, recipient_id))
@@ -282,4 +289,26 @@ def mark_conversation_read(
         Message.is_read == False,
     ).update({"is_read": True})
     db.commit()
+
+    sender_id = (
+        conversation.receiver_id
+        if conversation.initiator_id == current_user.id
+        else conversation.initiator_id
+    )
+
+    db.query(Message).filter(
+        Message.conversation_id == conversation_id,
+        Message.sender_id == sender_id,
+    ).update({"is_delivered": True})
+    db.commit()
+
+    read_payload = create_message_payload(
+        "message_read",
+        {
+            "conversation_id": conversation_id,
+            "reader_id": current_user.id,
+        },
+    )
+    asyncio.create_task(manager.send_personal_message(read_payload, sender_id))
+
     return None

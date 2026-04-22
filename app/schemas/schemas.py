@@ -192,6 +192,7 @@ class MessageResponse(MessageBase):
     conversation_id: int
     sender_id: int
     is_read: bool
+    message_status: str = "sent"
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

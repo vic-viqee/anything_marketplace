@@ -27,6 +27,7 @@ interface Message {
   sender_id: number;
   content: string;
   is_read: boolean;
+  message_status?: string;
   created_at: string;
 }
 
@@ -46,13 +47,19 @@ function MessagesContent() {
   const handleWsMessage = (msg: { type: string; data: Record<string, unknown> }) => {
     if (msg.type === 'new_message' && msg.data.conversation_id === selectedId) {
       setMessages(prev => [...prev, {
-        id: Date.now(),
+        id: msg.data.id as number || Date.now(),
         conversation_id: msg.data.conversation_id as number,
         sender_id: msg.data.sender_id as number,
         content: msg.data.content as string,
-        is_read: false,
-        created_at: new Date().toISOString()
+        is_read: msg.data.is_read as boolean || false,
+        message_status: 'sent',
+        created_at: msg.data.created_at as string || new Date().toISOString()
       }]);
+    }
+    if (msg.type === 'message_read' && msg.data.conversation_id === selectedId) {
+      setMessages(prev => prev.map(m => 
+        m.sender_id === user?.id ? { ...m, message_status: 'read' } : m
+      ));
     }
   };
 
@@ -104,15 +111,30 @@ function MessagesContent() {
     e.preventDefault();
     if (!newMessage.trim() || !selectedId) return;
 
+    const tempId = Date.now();
+    const optimisticMessage: Message = {
+      id: tempId,
+      conversation_id: selectedId,
+      sender_id: user!.id,
+      content: newMessage.trim(),
+      is_read: false,
+      message_status: 'sent',
+      created_at: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, optimisticMessage]);
+    setNewMessage('');
     setSending(true);
+
     try {
       const res = await chatApi.sendMessage({
         conversation_id: selectedId,
-        content: newMessage.trim(),
+        content: optimisticMessage.content,
       });
-      setMessages(prev => [...prev, res.data]);
-      setNewMessage('');
+      setMessages(prev => prev.map(m => m.id === tempId ? res.data : m));
     } catch {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setNewMessage(optimisticMessage.content);
     } finally {
       setSending(false);
     }
@@ -174,10 +196,15 @@ function MessagesContent() {
                   }`}
                 >
                   <p>{msg.content}</p>
-                  <p className={`text-xs mt-1 ${
+                  <p className={`text-xs mt-1 flex items-center justify-end gap-1 ${
                     msg.sender_id === user?.id ? 'text-primary-foreground/70' : 'text-muted-foreground'
                   }`}>
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {msg.sender_id === user?.id && (
+                      <span className={msg.message_status === 'read' ? 'text-blue-400' : 'text-primary-foreground/70'}>
+                        {msg.message_status === 'read' ? '✓✓' : '✓'}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

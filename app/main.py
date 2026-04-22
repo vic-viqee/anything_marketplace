@@ -60,6 +60,7 @@ def run_migrations():
         ("products", "is_featured", "BOOLEAN DEFAULT FALSE"),
         ("products", "featured_until", "TIMESTAMP WITH TIME ZONE"),
         ("products", "featured_by_admin", "BOOLEAN DEFAULT FALSE"),
+        ("messages", "is_delivered", "BOOLEAN DEFAULT FALSE"),
     ]
 
     try:
