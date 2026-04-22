@@ -50,19 +50,27 @@ function AdminContent() {
 
   const loadData = async () => {
     try {
-      const [analyticsRes, productsRes, usersRes] = await Promise.all([
-        adminApi.getAnalytics(),
-        adminApi.getPendingProducts(),
-        adminApi.listUsers(),
-      ]);
+      const analyticsRes = await adminApi.getAnalytics();
       setAnalytics(analyticsRes.data);
-      setPendingProducts(productsRes.data);
-      setUsers(usersRes.data);
-    } catch {
-      // Silent failure
-    } finally {
-      setLoading(false);
+    } catch (e) {
+      console.error('Analytics failed:', e);
     }
+
+    try {
+      const productsRes = await adminApi.getPendingProducts();
+      setPendingProducts(productsRes.data);
+    } catch (e) {
+      console.error('Products failed:', e);
+    }
+
+    try {
+      const usersRes = await adminApi.listUsers();
+      setUsers(usersRes.data);
+    } catch (e) {
+      console.error('Users failed:', e);
+    }
+
+    setLoading(false);
   };
 
   const loadRatings = async () => {
@@ -355,9 +363,17 @@ function AdminContent() {
       )}
       <div className="flex justify-between items-center mb-8">
         <h1 className="font-serif text-3xl text-foreground">Admin Dashboard</h1>
-        <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground">
-          Logout
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => { setLoading(true); loadData(); }} 
+            className="text-sm px-3 py-1 border border-border rounded-lg hover:bg-muted transition-colors"
+          >
+            Refresh
+          </button>
+          <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground">
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-4 mb-8 border-b border-border overflow-x-auto">
