@@ -123,6 +123,7 @@ export default function Register() {
             )}
 
             <PhoneInput label="Phone Number" value={phone} onChange={setPhone} />
+            <p className="text-xs text-muted-foreground -mt-4">Use your WhatsApp number - buyers & admins will contact you here</p>
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Username</label>

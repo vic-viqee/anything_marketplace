@@ -320,7 +320,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 
                 {product.seller?.phone && (
                   <a
-                    href={`https://wa.me/${product.seller.phone.replace('+', '')}?text=Hi, I\'m interested in your "${product.title}" listed for KES ${product.price.toLocaleString()}`}
+                    href={`https://wa.me/${product.seller.phone.replace('+', '')}?text=${encodeURIComponent(`Hi, I'm interested in your "${product.title}" listed for KES ${product.price.toLocaleString()}.${user?.phone ? ` You can reach me at: ${user.phone}` : ''}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full py-3 bg-green-500 text-white rounded-full font-medium hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
