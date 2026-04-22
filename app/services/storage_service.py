@@ -105,10 +105,10 @@ class CloudinaryStorageService:
             pass
 
     def get_url(self, filename: str) -> str:
-        import cloudinary
-        import cloudinary.api
+        from cloudinary import CloudinaryImage
 
-        return cloudinary.api.url(filename, resource_type="image")
+        img = CloudinaryImage(filename)
+        return img.build_url(resource_type="image")
 
 
 def get_storage_service() -> StorageService:
