@@ -150,7 +150,9 @@ class ProductResponse(ProductBase):
     image_url: Optional[str] = None
     status: str
     is_approved: bool
+    is_featured: bool = False
     seller_id: int
+    category_id: Optional[int] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     sold_at: Optional[datetime] = None

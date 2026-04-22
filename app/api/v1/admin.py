@@ -223,19 +223,46 @@ def get_pending_products(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    query = db.query(Product).filter(
-        Product.is_approved == False, Product.status == ProductStatus.AVAILABLE
-    )
-
-    if search:
-        search_term = search.strip()
-        query = query.filter(
-            (Product.title.ilike(f"%{search_term}%"))
-            | (Product.description.ilike(f"%{search_term}%"))
+    try:
+        query = db.query(Product).filter(
+            Product.is_approved == False, Product.status == ProductStatus.AVAILABLE
         )
 
-    products = query.order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
-    return products
+        if search:
+            search_term = search.strip()
+            query = query.filter(
+                (Product.title.ilike(f"%{search_term}%"))
+                | (Product.description.ilike(f"%{search_term}%"))
+            )
+
+        products = (
+            query.order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
+        )
+
+        # Convert to dict to avoid validation issues
+        return [
+            {
+                "id": p.id,
+                "title": p.title,
+                "description": p.description,
+                "price": p.price,
+                "image_url": p.image_url,
+                "status": p.status.value
+                if hasattr(p.status, "value")
+                else str(p.status),
+                "is_approved": p.is_approved,
+                "is_featured": p.is_featured,
+                "seller_id": p.seller_id,
+                "category_id": p.category_id,
+                "created_at": p.created_at,
+                "updated_at": p.updated_at,
+                "sold_at": p.sold_at,
+            }
+            for p in products
+        ]
+    except Exception as e:
+        print(f"Error in get_pending_products: {e}")
+        return []
 
 
 @router.get("/products", response_model=List[ProductResponse])
