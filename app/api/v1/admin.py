@@ -215,7 +215,7 @@ def export_products_csv(
     )
 
 
-@router.get("/products/pending", response_model=List[ProductResponse])
+@router.get("/products/pending")
 def get_pending_products(
     skip: int = 0,
     limit: int = 50,
@@ -239,30 +239,37 @@ def get_pending_products(
             query.order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
         )
 
-        # Convert to dict to avoid validation issues
         return [
             {
                 "id": p.id,
-                "title": p.title,
+                "title": p.title or "",
                 "description": p.description,
-                "price": p.price,
+                "price": max(0, p.price or 0),
                 "image_url": p.image_url,
                 "status": p.status.value
                 if hasattr(p.status, "value")
-                else str(p.status),
+                else str(p.status)
+                if p.status
+                else "available",
                 "is_approved": p.is_approved,
-                "is_featured": p.is_featured,
+                "is_featured": getattr(p, "is_featured", False),
                 "seller_id": p.seller_id,
                 "category_id": p.category_id,
-                "created_at": p.created_at,
-                "updated_at": p.updated_at,
-                "sold_at": p.sold_at,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+                "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+                "sold_at": p.sold_at.isoformat() if p.sold_at else None,
             }
             for p in products
         ]
     except Exception as e:
+        import traceback
+
         print(f"Error in get_pending_products: {e}")
-        return []
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch pending products: {str(e)}",
+        )
 
 
 @router.get("/products", response_model=List[ProductResponse])
