@@ -70,7 +70,7 @@ export default function PostAd() {
           Your account needs to be verified before you can post products. Contact admin on WhatsApp to get verified.
         </p>
         <a
-          href="https://wa.me/254700000000"
+          href="https://wa.me/254114086112"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-6 py-3 bg-green-500 text-white rounded-full font-medium hover:bg-green-600 transition-colors"
