@@ -6,6 +6,7 @@ import { useAuthStore } from '@/context/auth-store';
 import { authApi, ticketsApi } from '@/lib/api';
 import { ApiError } from '@/types';
 import { LogOut, User, Settings, Camera, Shield, Star, Crown, Zap, CreditCard, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { SkeletonBlock, SkeletonCircle } from '@/components/Skeleton';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -203,7 +204,7 @@ function ProfileContent() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="font-serif text-3xl text-foreground mb-8">Settings</h1>
       
-      <div className="flex gap-4 mb-8 border-b border-border">
+          <div className="flex gap-1 md:gap-4 mb-8 border-b border-border">
         <button
           onClick={() => setActiveTab('profile')}
           className={`flex items-center gap-2 pb-3 px-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
@@ -506,7 +507,7 @@ function ProfileContent() {
             <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Featured listings</span>
-                <div className="flex gap-4">
+                <div className="grid grid-cols-4 gap-1 sm:flex sm:gap-4 text-xs sm:text-sm">
                   <span>Free: 0</span>
                   <span>Basic: 1</span>
                   <span className="text-primary font-medium">Standard: 3</span>
@@ -515,7 +516,7 @@ function ProfileContent() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Verified badge</span>
-                <div className="flex gap-4">
+                <div className="grid grid-cols-4 gap-1 sm:flex sm:gap-4 text-xs sm:text-sm">
                   <span>-</span>
                   <span>-</span>
                   <span className="text-primary font-medium">Yes</span>
@@ -532,7 +533,7 @@ function ProfileContent() {
 
 export default function Profile() {
   return (
-    <Suspense fallback={<div className="max-w-2xl mx-auto px-4 py-8 text-center"><p className="text-muted-foreground">Loading...</p></div>}>
+    <Suspense fallback={<div className="max-w-2xl mx-auto px-4 py-8 space-y-6"><div className="flex items-center gap-6"><SkeletonCircle size={24} /><SkeletonBlock className="h-10 w-32 rounded-lg" /></div><div className="space-y-4"><SkeletonBlock className="h-12 w-full" /><SkeletonBlock className="h-12 w-full" /><SkeletonBlock className="h-12 w-full" /><SkeletonBlock className="h-12 w-full" /></div></div>}>
       <ProfileContent />
     </Suspense>
   );

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 import asyncio
 
 from app.core.database import get_db
@@ -220,7 +220,7 @@ def send_message(
         content=sanitize_message_content(message_data.content),
     )
 
-    conversation.last_message_at = datetime.utcnow()
+    conversation.last_message_at = datetime.now(timezone.utc)
 
     db.add(message)
     db.commit()
@@ -244,7 +244,7 @@ def send_message(
             "created_at": message.created_at.isoformat(),
         },
     )
-    asyncio.create_task(manager.send_personal_message(payload, recipient_id))
+    asyncio.run(manager.send_personal_message(payload, recipient_id))
 
     create_notification(
         db=db,
@@ -309,6 +309,6 @@ def mark_conversation_read(
             "reader_id": current_user.id,
         },
     )
-    asyncio.create_task(manager.send_personal_message(read_payload, sender_id))
+    asyncio.run(manager.send_personal_message(read_payload, sender_id))
 
     return None

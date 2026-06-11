@@ -5,24 +5,16 @@ import { useRouter } from 'next/navigation';
 import { productsApi } from '@/lib/api';
 import { useAuthStore } from '@/context/auth-store';
 import { Clock, CheckCircle, ArrowLeft, Package, Star, Crown, Zap, Shield, ShieldCheck, MessageCircle } from 'lucide-react';
-
-interface MyProduct {
-  id: number;
-  title: string;
-  price: number;
-  image_url: string | null;
-  status: string;
-  is_approved: boolean;
-  is_featured: boolean;
-  featured_until: string | null;
-  created_at: string;
-}
+import MyProductCard, { MyProduct } from '@/components/MyProductCard';
+import { SkeletonBlock } from '@/components/Skeleton';
 
 export default function MyProducts() {
   const [products, setProducts] = useState<MyProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingSold, setMarkingSold] = useState<number | null>(null);
   const [togglingFeatured, setTogglingFeatured] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
 
@@ -67,6 +59,19 @@ export default function MyProducts() {
       alert('Failed to mark as sold');
     } finally {
       setMarkingSold(null);
+    }
+  };
+
+  const handleDelete = async (productId: number) => {
+    setDeleting(productId);
+    try {
+      await productsApi.delete(productId);
+      setProducts(prev => prev.filter(p => p.id !== productId));
+    } catch {
+      alert('Failed to delete product');
+    } finally {
+      setDeleting(null);
+      setConfirmDelete(null);
     }
   };
 
@@ -177,7 +182,19 @@ export default function MyProducts() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-muted-foreground">Loading...</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="border border-border rounded-xl overflow-hidden">
+              <SkeletonBlock className="aspect-[4/3] rounded-none" />
+              <div className="p-4 space-y-2">
+                <SkeletonBlock className="h-5 w-3/4" />
+                <SkeletonBlock className="h-6 w-1/2" />
+                <SkeletonBlock className="h-9 w-full mt-3" />
+                <SkeletonBlock className="h-4 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : products.length === 0 ? (
         <div className="text-center py-16">
           <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
@@ -201,7 +218,7 @@ export default function MyProducts() {
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {pending.map(product => (
-                  <ProductCard key={product.id} product={product} />
+                  <MyProductCard key={product.id} product={product} onDelete={handleDelete} deleting={deleting} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} />
                 ))}
               </div>
             </section>
@@ -215,7 +232,7 @@ export default function MyProducts() {
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {approved.map(product => (
-                  <ProductCard key={product.id} product={product} onMarkSold={handleMarkSold} markingSold={markingSold} onToggleFeatured={handleToggleFeatured} togglingFeatured={togglingFeatured} />
+                  <MyProductCard key={product.id} product={product} onMarkSold={handleMarkSold} markingSold={markingSold} onToggleFeatured={handleToggleFeatured} togglingFeatured={togglingFeatured} onDelete={handleDelete} deleting={deleting} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} />
                 ))}
               </div>
             </section>
@@ -228,7 +245,7 @@ export default function MyProducts() {
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {sold.map(product => (
-                  <ProductCard key={product.id} product={product} sold />
+                  <MyProductCard key={product.id} product={product} sold onDelete={handleDelete} deleting={deleting} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} />
                 ))}
               </div>
             </section>
@@ -239,80 +256,4 @@ export default function MyProducts() {
   );
 }
 
-function ProductCard({ product, onMarkSold, markingSold, sold, onToggleFeatured, togglingFeatured }: {
-  product: MyProduct;
-  onMarkSold?: (id: number) => void;
-  markingSold?: number | null;
-  sold?: boolean;
-  onToggleFeatured?: (id: number, current: boolean) => void;
-  togglingFeatured?: number | null;
-}) {
-  const router = useRouter();
-  const [imgError, setImgError] = useState(false);
-  const src = product.image_url
-    ? (product.image_url.startsWith('http') ? product.image_url : `${process.env.NEXT_PUBLIC_API_URL}/uploads/${product.image_url}`)
-    : null;
 
-  return (
-    <div className="group border border-border rounded-xl overflow-hidden hover:shadow-lg transition-all">
-      <div
-        className="aspect-[4/3] bg-muted relative cursor-pointer"
-        onClick={() => router.push(`/product/${product.id}`)}
-      >
-        {src && !imgError ? (
-          <img
-            src={src}
-            alt={product.title}
-            className="w-full h-full object-cover"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-            No image
-          </div>
-        )}
-        {sold && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <span className="px-3 py-1 bg-destructive text-white text-sm font-medium rounded-full">Sold</span>
-          </div>
-        )}
-        {product.is_featured && !sold && (
-          <div className="absolute top-2 left-2 px-2 py-1 bg-amber-500 text-white text-xs font-semibold rounded-full flex items-center gap-1">
-            <Star className="w-3 h-3 fill-current" />
-            Featured
-          </div>
-        )}
-      </div>
-      <div className="p-4">
-        <h3 className="font-medium text-foreground truncate">{product.title}</h3>
-        <p className="mt-1 text-lg font-semibold text-primary">KES {product.price.toLocaleString()}</p>
-        {!sold && onMarkSold && product.is_approved && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onMarkSold(product.id); }}
-            disabled={markingSold === product.id}
-            className="mt-2 w-full py-2 text-sm border border-input rounded-lg text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
-          >
-            {markingSold === product.id ? 'Marking...' : 'Mark as Sold'}
-          </button>
-        )}
-        {!sold && onToggleFeatured && product.is_approved && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleFeatured(product.id, product.is_featured); }}
-            disabled={togglingFeatured === product.id}
-            className={`mt-2 w-full py-2 text-sm border rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
-              product.is_featured
-                ? 'border-amber-500 text-amber-500 hover:bg-amber-500/10'
-                : 'border-input text-muted-foreground hover:border-amber-500 hover:text-amber-500'
-            }`}
-          >
-            <Star className={`w-4 h-4 ${product.is_featured ? 'fill-current' : ''}`} />
-            {togglingFeatured === product.id ? 'Updating...' : product.is_featured ? 'Remove Featured' : 'Feature'}
-          </button>
-        )}
-        <p className="mt-2 text-xs text-muted-foreground">
-          Posted {new Date(product.created_at).toLocaleDateString()}
-        </p>
-      </div>
-    </div>
-  );
-}

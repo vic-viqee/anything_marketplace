@@ -19,6 +19,7 @@ from app.api.v1.reports import router as reports_router
 from app.api.v1.websocket import router as ws_router
 from app.api.v1.payments import router as payments_router
 from app.api.v1.webhooks import router as webhooks_router
+from app.api.v1.users import router as users_router
 from app.services.redis_service import redis_client
 
 try:
@@ -254,6 +255,7 @@ app.include_router(reports_router)
 app.include_router(ws_router)
 app.include_router(payments_router)
 app.include_router(webhooks_router)
+app.include_router(users_router)
 
 
 @app.get("/")

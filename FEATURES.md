@@ -271,4 +271,26 @@ This document contains the complete features overview for the Anything Marketpla
 
 ---
 
-_Last updated: 2026-04-15 (includes subscription tiers, KYC verification, reports, suspended users)_
+## Proposed MVP Enhancements (Trust & Safety)
+
+Based on research into the Kenyan P2P market (Jiji, Facebook Marketplace) and local user behavior, the following features are planned to make the MVP market-ready:
+
+### 1. Trust & Verification
+- **SMS Phone Verification**: Required for all sellers. Integration via Africa's Talking.
+- **Enhanced Trust Signals**: Display "Member Since [Year]" and "Verification Level" (Phone, ID, Established) on seller profiles.
+- **Public Meet-up Badge**: Allow sellers to toggle a "Willing to meet in public places" badge.
+
+### 2. In-App Safety Features
+- **Smart Safety Tips**: Auto-injected safety warnings in the chat interface (e.g., "Never pay before inspection").
+- **Price Variance Alerts**: Admin-side flags for items priced suspiciously low (e.g., iPhone for 10k) to combat common scams.
+- **Community Shield**: Auto-hide listings that receive 3+ reports within a short window until Admin review.
+
+### 3. Payment & Connectivity
+- **M-Pesa Escrow Integration**: Support for services like "Escrow Kenya" to allow secure "Lipa na Escrow" payments.
+- **WhatsApp Quick-Connect**: Pre-filled WhatsApp message buttons to bridge the gap between in-app chat and the preferred local communication tool.
+
+### 4. Search & Discovery
+- **Location-Based Search**: Filter items by neighborhood or city (e.g., Westlands, Kilimani, Thika).
+- **Verified-Only Filter**: Allow buyers to see only listings from ID-verified sellers.
+
+---

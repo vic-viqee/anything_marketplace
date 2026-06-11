@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -41,7 +41,7 @@ def mark_as_sold(
         )
 
     product.status = ProductStatus.SOLD
-    product.sold_at = datetime.utcnow()
+    product.sold_at = datetime.now(timezone.utc)
     db.commit()
     return None
 

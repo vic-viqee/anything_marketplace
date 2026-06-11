@@ -141,7 +141,7 @@ export default function Register() {
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">I want to...</label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className={`flex flex-col items-center p-4 rounded-lg border-2 cursor-pointer transition-colors ${role === 'customer' ? 'border-primary bg-primary/5' : 'border-input hover:border-primary/50'}`}>
                   <input type="radio" name="role" value="customer" checked={role === 'customer'} onChange={() => setRole('customer')} className="sr-only" />
                   <span className="font-medium text-foreground">Buy things</span>

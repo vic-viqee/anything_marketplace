@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { notificationsApi } from '@/lib/api';
 import { useAuthStore } from '@/context/auth-store';
 import { Bell, CheckCircle, XCircle, MessageCircle, Star, ArrowLeft, CheckCheck } from 'lucide-react';
+import { SkeletonBlock } from '@/components/Skeleton';
 import { Notification } from '@/types';
 
 export default function Notifications() {
@@ -81,7 +82,20 @@ export default function Notifications() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-muted-foreground">Loading...</div>
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="p-4 rounded-xl border border-border space-y-2">
+              <div className="flex items-start gap-4">
+                <SkeletonBlock className="w-5 h-5 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <SkeletonBlock className="h-5 w-1/2" />
+                  <SkeletonBlock className="h-4 w-3/4" />
+                  <SkeletonBlock className="h-3 w-1/4" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : notifications.length === 0 ? (
         <div className="text-center py-12">
           <Bell className="w-12 h-12 text-muted-foreground mx-auto mb-4" />

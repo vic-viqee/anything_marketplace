@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 import json
 
@@ -41,9 +41,7 @@ class Settings(BaseSettings):
 
     TIER_PRICES: str = "free:0,basic:200,standard:500,premium:1000"
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property
     def parsed_cors_origins(self) -> list[str]:

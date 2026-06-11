@@ -20,9 +20,10 @@ from app.core.database import SessionLocal
 from app.models.models import User, UserRole
 from app.services.auth_service import get_password_hash
 import argparse
+from typing import Optional
 
 
-def create_admin(phone: str, role: str = "admin"):
+def create_admin(phone: str, role: str = "admin", password: Optional[str] = None):
     db = SessionLocal()
 
     try:
@@ -32,7 +33,8 @@ def create_admin(phone: str, role: str = "admin"):
             user.role = UserRole(role)
             print(f"✓ Updated user {phone} to {role}")
         else:
-            password = input("Enter password for new admin user: ")
+            if not password:
+                password = input("Enter password for new admin user: ")
             user = User(
                 phone=phone,
                 username=phone.lstrip("+"),
@@ -58,6 +60,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--role", default="admin", choices=["admin", "seller", "customer"]
     )
+    parser.add_argument("--password", help="Password for new user")
 
     args = parser.parse_args()
-    create_admin(args.phone, args.role)
+    create_admin(args.phone, args.role, args.password)

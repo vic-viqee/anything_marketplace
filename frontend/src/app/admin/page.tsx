@@ -6,6 +6,7 @@ import { useAuthStore } from '@/context/auth-store';
 import { adminApi, productsApi } from '@/lib/api';
 import { User, Product, Analytics, Rating, Ticket, ActivityLog, Category, AdminTab, ApiError, Subscription, Report } from '@/types';
 import { Users, Package, Check, X, Trash2, AlertCircle, Ticket as TicketIcon, Star, Bell, Search, History, Folder, CreditCard, Flag, ShieldCheck } from 'lucide-react';
+import { SkeletonBlock } from '@/components/Skeleton';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
 export const dynamic = 'force-dynamic';
@@ -376,12 +377,12 @@ function AdminContent() {
         </div>
       </div>
 
-      <div className="flex gap-4 mb-8 border-b border-border overflow-x-auto">
+      <div className="flex gap-2 md:gap-4 mb-8 border-b border-border overflow-x-auto">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 pb-3 px-2 text-sm font-medium transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-1 md:gap-2 pb-2 md:pb-3 px-1.5 md:px-2 text-xs md:text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === tab.id
                 ? 'text-foreground border-b-2 border-primary'
                 : 'text-muted-foreground hover:text-foreground'
@@ -399,7 +400,17 @@ function AdminContent() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-muted-foreground">Loading...</div>
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-card p-6 rounded-lg border border-border space-y-2">
+                <SkeletonBlock className="h-4 w-1/2" />
+                <SkeletonBlock className="h-8 w-1/3" />
+              </div>
+            ))}
+          </div>
+          <SkeletonBlock className="h-[400px] rounded-lg" />
+        </div>
       ) : (
         <>
           {activeTab === 'analytics' && analytics && (
@@ -523,60 +534,64 @@ function AdminContent() {
                   Search
                 </button>
               </div>
-              <div className="bg-card rounded-lg border border-border overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-muted border-b border-border">
-                    <tr>
-                      <th className="text-left p-4 text-sm font-medium">Phone</th>
-                      <th className="text-left p-4 text-sm font-medium">Username</th>
-                      <th className="text-left p-4 text-sm font-medium">Role</th>
-                      <th className="text-left p-4 text-sm font-medium">Verified</th>
-                      <th className="text-left p-4 text-sm font-medium">Status</th>
-                      <th className="text-left p-4 text-sm font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map(user => (
-                      <tr key={user.id} className="border-b border-border">
-                        <td className="p-4 text-sm">{user.phone}</td>
-                        <td className="p-4 text-sm">{user.username || '-'}</td>
-                        <td className="p-4">
-                          <select value={user.role} onChange={(e) => handleUpdateRole(user.id, e.target.value)} className="text-sm border rounded px-2 py-1">
-                            <option value="customer">Customer</option>
-                            <option value="seller">Seller</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                        </td>
-                        <td className="p-4">
-                          {user.role === 'seller' && (
-                            user.is_identity_verified ? (
-                              <button onClick={() => handleUnverifySeller(user.id)} disabled={actionLoading === user.id} className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 disabled:opacity-50">
-                                <Check className="w-4 h-4" /> Verified
-                              </button>
-                            ) : (
-                              <button onClick={() => handleVerifySeller(user.id)} disabled={actionLoading === user.id} className="flex items-center gap-1 px-2 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50">
-                                <ShieldCheck className="w-4 h-4" /> Verify
-                              </button>
-                            )
-                          )}
-                        </td>
-                        <td className="p-4">
-                          <span className={`text-sm ${user.is_active ? 'text-green-600' : 'text-destructive'}`}>
-                            {user.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td className="p-4 flex gap-2">
-                          <button onClick={() => handleDeactivate(user.id)} className="p-2 text-muted-foreground hover:bg-muted rounded">
-                            {user.is_active ? 'Deactivate' : 'Activate'}
-                          </button>
-                          <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
+              <div className="bg-card rounded-lg border border-border">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-muted border-b border-border">
+                      <tr>
+                        <th className="text-left p-4 text-sm font-medium whitespace-nowrap">Phone</th>
+                        <th className="text-left p-4 text-sm font-medium whitespace-nowrap">Username</th>
+                        <th className="text-left p-4 text-sm font-medium whitespace-nowrap">Role</th>
+                        <th className="text-left p-4 text-sm font-medium whitespace-nowrap">Verified</th>
+                        <th className="text-left p-4 text-sm font-medium whitespace-nowrap">Status</th>
+                        <th className="text-left p-4 text-sm font-medium whitespace-nowrap">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {users.map(user => (
+                        <tr key={user.id} className="border-b border-border">
+                          <td className="p-4 text-sm whitespace-nowrap">{user.phone}</td>
+                          <td className="p-4 text-sm whitespace-nowrap">{user.username || '-'}</td>
+                          <td className="p-4 whitespace-nowrap">
+                            <select value={user.role} onChange={(e) => handleUpdateRole(user.id, e.target.value)} className="text-sm border rounded px-2 py-1">
+                              <option value="customer">Customer</option>
+                              <option value="seller">Seller</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          </td>
+                          <td className="p-4 whitespace-nowrap">
+                            {user.role === 'seller' && (
+                              user.is_identity_verified ? (
+                                <button onClick={() => handleUnverifySeller(user.id)} disabled={actionLoading === user.id} className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 disabled:opacity-50">
+                                  <Check className="w-4 h-4" /> Verified
+                                </button>
+                              ) : (
+                                <button onClick={() => handleVerifySeller(user.id)} disabled={actionLoading === user.id} className="flex items-center gap-1 px-2 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50">
+                                  <ShieldCheck className="w-4 h-4" /> Verify
+                                </button>
+                              )
+                            )}
+                          </td>
+                          <td className="p-4 whitespace-nowrap">
+                            <span className={`text-sm ${user.is_active ? 'text-green-600' : 'text-destructive'}`}>
+                              {user.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="p-4 whitespace-nowrap">
+                            <div className="flex gap-2">
+                              <button onClick={() => handleDeactivate(user.id)} className="p-2 text-muted-foreground hover:bg-muted rounded whitespace-nowrap text-xs sm:text-sm">
+                                {user.is_active ? 'Deactivate' : 'Activate'}
+                              </button>
+                              <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -817,7 +832,7 @@ function AdminContent() {
 
 export default function AdminDashboard() {
   return (
-    <Suspense fallback={<div className="max-w-6xl mx-auto px-4 py-8 text-center">Loading...</div>}>
+    <Suspense fallback={<div className="max-w-6xl mx-auto px-4 py-8 space-y-6"><div className="grid grid-cols-2 md:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="bg-card p-6 rounded-lg border border-border space-y-2"><SkeletonBlock className="h-4 w-1/2" /><SkeletonBlock className="h-8 w-1/3" /></div>)}</div><SkeletonBlock className="h-[400px] rounded-lg" /></div>}>
       <AdminContent />
     </Suspense>
   );

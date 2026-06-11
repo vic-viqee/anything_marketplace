@@ -5,6 +5,7 @@ import { productsApi } from '@/lib/api';
 import { ProductListItem, Category } from '@/types';
 import ProductCard from '@/components/ProductCard';
 import { Search } from 'lucide-react';
+import { SkeletonBlock } from '@/components/Skeleton';
 
 export default function Home() {
   const [products, setProducts] = useState<ProductListItem[]>([]);
@@ -113,7 +114,20 @@ export default function Home() {
         ))}
       </div>
 
-      {products.length === 0 && !loading ? (
+      {loading && products.length === 0 ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="border border-border rounded-lg overflow-hidden">
+              <SkeletonBlock className="aspect-[4/3] rounded-none" />
+              <div className="p-3 space-y-2">
+                <SkeletonBlock className="h-5 w-3/4" />
+                <SkeletonBlock className="h-6 w-1/2" />
+                <SkeletonBlock className="h-4 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : products.length === 0 && !loading ? (
         <div className="text-center py-20">
           <p className="text-muted-foreground text-lg">No products yet. Be the first to post!</p>
         </div>

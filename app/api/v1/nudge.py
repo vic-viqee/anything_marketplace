@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.models.models import User, Conversation, Message
@@ -15,7 +15,7 @@ def get_nudges(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
-    one_day_ago = datetime.utcnow() - timedelta(days=1)
+    one_day_ago = datetime.now(timezone.utc) - timedelta(days=1)
 
     conversations = (
         db.query(Conversation)
@@ -48,7 +48,7 @@ def get_nudges(
 
         if unread_count > 0 or (
             conv.last_message_at > one_day_ago
-            and conv.last_message_at <= datetime.utcnow() - timedelta(hours=1)
+            and conv.last_message_at <= datetime.now(timezone.utc) - timedelta(hours=1)
         ):
             nudges.append(
                 {

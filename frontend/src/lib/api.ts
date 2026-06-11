@@ -87,6 +87,8 @@ export const productsApi = {
     api.post(`/api/v1/products/${id}/ratings`, data),
   
   getUserRatings: (userId: number) => api.get(`/api/v1/products/users/${userId}/ratings`),
+
+  getUserRatingsReceived: (userId: number) => api.get(`/api/v1/products/users/${userId}/ratings/received`),
 };
 
 export const chatApi = {
@@ -217,6 +219,14 @@ export const paymentsApi = {
   
   checkStatus: (checkoutRequestId: string) =>
     api.post(`/api/v1/payments/check/${checkoutRequestId}`),
+};
+
+export const usersApi = {
+  get: (userId: number) => api.get(`/api/v1/users/${userId}`),
+
+  getProducts: (userId: number) => api.get(`/api/v1/users/${userId}/products`),
+
+  getRatings: (userId: number) => api.get(`/api/v1/users/${userId}/ratings`),
 };
 
 export default api;

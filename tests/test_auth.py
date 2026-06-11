@@ -42,10 +42,6 @@ def override_get_current_active_user():
     return user
 
 
-app.dependency_overrides[get_db] = override_get_db
-app.dependency_overrides[get_current_active_user] = override_get_current_active_user
-
-
 @pytest.fixture(scope="function")
 def db():
     Base.metadata.create_all(bind=engine)
@@ -60,6 +56,8 @@ def db():
 @pytest.fixture(scope="function")
 def client():
     Base.metadata.create_all(bind=engine)
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_active_user] = override_get_current_active_user
     with TestClient(app) as c:
         yield c
     Base.metadata.drop_all(bind=engine)
@@ -71,7 +69,7 @@ def test_register_success(client):
         json={
             "phone": "+254700000001",
             "username": "testuser",
-            "password": "testpass123",
+            "password": "TestPass123!",
         },
     )
     assert response.status_code == 201
@@ -99,7 +97,7 @@ def test_register_duplicate_phone(client, db):
 
     response = client.post(
         "/api/v1/auth/register",
-        json={"phone": "+254700000001", "username": "newuser", "password": "pass123"},
+        json={"phone": "+254700000001", "username": "newuser", "password": "Pass123!"},
     )
     assert response.status_code == 400
     assert "already registered" in response.json()["detail"]

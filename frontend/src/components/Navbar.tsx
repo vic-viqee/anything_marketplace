@@ -141,53 +141,60 @@ export default function Navbar() {
       </div>
 
       {isMenuOpen && (
-        <div 
-          id="mobile-menu"
-          ref={menuRef}
-          className="md:hidden border-t border-border"
-          role="menu"
-        >
-          <div className="px-4 py-3 space-y-1">
-            {navLinks.map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="block py-3 px-2 text-sm font-medium text-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                role="menuitem"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ))}
-            {authLinks.map(link => {
-              const Icon = link.icon;
-              return (
+        <div className="md:hidden">
+          <div
+            className="fixed inset-0 bg-black/20 z-40"
+            onClick={() => setIsMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <div 
+            id="mobile-menu"
+            ref={menuRef}
+            className="border-t border-border relative z-50 bg-card"
+            role="menu"
+          >
+            <div className="px-4 py-3 space-y-1">
+              {navLinks.map(link => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="flex items-center justify-between py-3 px-2 text-sm font-medium text-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="block py-3 px-2 text-sm font-medium text-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   role="menuitem"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  <span className="flex items-center gap-2">
-                    <Icon className="w-4 h-4" />
-                    {link.label}
-                  </span>
-                  {'badge' in link && link.badge && link.badge > 0 && (
-                    <span className="px-2 py-0.5 text-xs font-medium bg-destructive text-destructive-foreground rounded-full">
-                      {link.badge}
-                    </span>
-                  )}
+                  {link.label}
                 </Link>
-              );
-            })}
-            <button
-              onClick={() => { toggleTheme(); setIsMenuOpen(false); }}
-              className="flex items-center gap-2 w-full py-3 px-2 text-sm font-medium text-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-              {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
-            </button>
+              ))}
+              {authLinks.map(link => {
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="flex items-center justify-between py-3 px-2 text-sm font-medium text-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    role="menuitem"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Icon className="w-4 h-4" />
+                      {link.label}
+                    </span>
+                    {'badge' in link && link.badge && link.badge > 0 && (
+                      <span className="px-2 py-0.5 text-xs font-medium bg-destructive text-destructive-foreground rounded-full">
+                        {link.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+              <button
+                onClick={() => { toggleTheme(); setIsMenuOpen(false); }}
+                className="flex items-center gap-2 w-full py-3 px-2 text-sm font-medium text-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+              </button>
+            </div>
           </div>
         </div>
       )}

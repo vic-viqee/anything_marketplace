@@ -20,7 +20,7 @@ class RedisClient:
 
     async def disconnect(self):
         if self.redis:
-            await self.redis.close()
+            await self.redis.aclose()
 
     async def get_cache(self, key: str) -> Optional[str]:
         if not self.redis:

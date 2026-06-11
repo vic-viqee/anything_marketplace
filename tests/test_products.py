@@ -36,6 +36,7 @@ def db():
         username="testuser",
         hashed_password=get_password_hash("testpass"),
         role=UserRole.SELLER,
+        is_identity_verified=True,
     )
     category = Category(name="Electronics", slug="electronics")
     session.add(user)
@@ -60,6 +61,8 @@ def client(db):
             phone="+254700000001",
             username="testuser",
             hashed_password=get_password_hash("testpass"),
+            role=UserRole.SELLER,
+            is_identity_verified=True,
         )
         session.add(user)
         session.commit()

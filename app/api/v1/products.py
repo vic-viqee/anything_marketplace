@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 import json
 from io import BytesIO
@@ -325,7 +325,7 @@ def latest_feed(
             "status": p.status.value,
             "is_approved": p.is_approved,
             "is_featured": p.is_featured
-            and (not p.featured_until or p.featured_until > datetime.utcnow()),
+            and (not p.featured_until or p.featured_until > datetime.now(timezone.utc)),
             "seller_id": p.seller_id,
             "seller_username": p.seller.username,
             "seller_is_verified": get_seller_verified_status(p.seller),
@@ -463,7 +463,7 @@ async def update_product(
                 pass
         product.image_url = await save_image(image)
 
-    product.updated_at = datetime.utcnow()
+    product.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(product)
     return product
@@ -540,7 +540,7 @@ def feature_product(
         )
 
     product.is_featured = True
-    product.featured_until = datetime.utcnow() + timedelta(days=FEATURED_DURATION_DAYS)
+    product.featured_until = datetime.now(timezone.utc) + timedelta(days=FEATURED_DURATION_DAYS)
     product.featured_by_admin = False
 
     if limit > 0:

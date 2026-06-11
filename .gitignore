@@ -60,6 +60,9 @@ uploads/*.webp
 *.swp
 *.swo
 
+# Documentation (local only)
+TESTING_COMMANDS.md
+
 # pytest cache
 .pytest_cache/
 .ruff_cache/

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, Field
 import csv
 import io
@@ -113,7 +113,7 @@ def get_analytics(
         db.query(ActivityLog)
         .filter(
             ActivityLog.created_at
-            >= datetime.utcnow().replace(hour=0, minute=0, second=0)
+            >= datetime.now(timezone.utc).replace(hour=0, minute=0, second=0)
         )
         .count()
     )
@@ -774,7 +774,7 @@ def approve_kyc(
         )
 
     user.kyc_status = "approved"
-    user.kyc_reviewed_at = datetime.utcnow()
+    user.kyc_reviewed_at = datetime.now(timezone.utc)
     db.commit()
 
     create_notification(
@@ -894,8 +894,8 @@ def update_subscription(
         user.subscription_started_at = None
         user.featured_listings_used_this_month = 0
     else:
-        user.subscription_started_at = datetime.utcnow()
-        user.subscription_expires_at = datetime.utcnow() + timedelta(days=duration_days)
+        user.subscription_started_at = datetime.now(timezone.utc)
+        user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=duration_days)
     db.commit()
 
     create_notification(
@@ -1077,7 +1077,7 @@ def update_report(
     if admin_notes:
         report.admin_notes = admin_notes
     if status in ["resolved", "dismissed"]:
-        report.resolved_at = datetime.utcnow()
+        report.resolved_at = datetime.now(timezone.utc)
 
     db.commit()
     log_activity(
