@@ -2,6 +2,14 @@
 
 A P2P (peer-to-peer) marketplace MVP for buying and selling anything. Built with a "Pay on Delivery" model - no payment processing, just connect buyers and sellers directly. Designed for Kenyan users with M-Pesa integration support.
 
+## Live Demo
+
+- **Frontend**: [https://anything-marketplace-web.onrender.com/](https://anything-marketplace-web.onrender.com/)
+
+## About
+
+Anything Marketplace connects buyers and sellers without processing payments — transactions happen on delivery. Sellers list products, buyers browse and chat, and both parties meet to complete the deal. Built for the Kenyan market with M-Pesa integration, subscription tiers, KYC verification, and real-time P2P messaging.
+
 ## What It Does
 
 - **Browse Listings**: View products in a paginated feed with category filters, featured listings pinned to top
