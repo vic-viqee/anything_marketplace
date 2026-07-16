@@ -46,20 +46,50 @@ function MessagesContent() {
   const { isAuthenticated, user, token } = useAuthStore();
 
   const handleWsMessage = (msg: { type: string; data: Record<string, unknown> }) => {
-    if (msg.type === 'new_message' && msg.data.conversation_id === selectedId) {
-      setMessages(prev => [...prev, {
-        id: msg.data.id as number || Date.now(),
-        conversation_id: msg.data.conversation_id as number,
-        sender_id: msg.data.sender_id as number,
-        content: msg.data.content as string,
-        is_read: msg.data.is_read as boolean || false,
-        message_status: 'sent',
-        created_at: msg.data.created_at as string || new Date().toISOString()
-      }]);
+    if (msg.type === 'new_message') {
+      const data = msg.data as {
+        conversation_id: number;
+        sender_id: number;
+        content: string;
+        is_read: boolean;
+        message_status: string;
+        created_at: string;
+        id: number;
+      };
+
+      if (data.conversation_id === selectedId) {
+        setMessages(prev => {
+          const exists = prev.some(m => m.id === data.id);
+          if (exists) return prev;
+          return [...prev, {
+            id: data.id,
+            conversation_id: data.conversation_id,
+            sender_id: data.sender_id,
+            content: data.content,
+            is_read: data.is_read,
+            message_status: data.message_status,
+            created_at: data.created_at,
+          }];
+        });
+      }
+
+      setConversations(prev => prev.map(c => {
+        if (c.id !== data.conversation_id) return c;
+        return {
+          ...c,
+          last_message: data.content,
+          last_message_at: data.created_at,
+          unread: data.sender_id !== user?.id ? (c.unread || 0) + 1 : c.unread,
+        };
+      }));
     }
-    if (msg.type === 'message_read' && msg.data.conversation_id === selectedId) {
-      setMessages(prev => prev.map(m => 
-        m.sender_id === user?.id ? { ...m, message_status: 'read' } : m
+
+    if (msg.type === 'message_read') {
+      const data = msg.data as { conversation_id: number; reader_id: number };
+      setMessages(prev => prev.map(m =>
+        m.conversation_id === data.conversation_id && m.sender_id === user?.id
+          ? { ...m, message_status: 'read' as const }
+          : m
       ));
     }
   };

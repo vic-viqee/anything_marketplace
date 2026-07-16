@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timezone
-import asyncio
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -190,7 +189,7 @@ def get_conversation_messages(
 @router.post(
     "/messages", response_model=MessageResponse, status_code=status.HTTP_201_CREATED
 )
-def send_message(
+async def send_message(
     message_data: MessageCreate,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -238,13 +237,13 @@ def send_message(
             "id": message.id,
             "conversation_id": conversation.id,
             "sender_id": current_user.id,
-            "content": message_data.content,
+            "content": message.content,
             "is_read": False,
             "message_status": "sent",
             "created_at": message.created_at.isoformat(),
         },
     )
-    asyncio.run(manager.send_personal_message(payload, recipient_id))
+    await manager.send_personal_message(payload, recipient_id)
 
     create_notification(
         db=db,
@@ -262,7 +261,7 @@ def send_message(
 @router.post(
     "/conversations/{conversation_id}/read", status_code=status.HTTP_204_NO_CONTENT
 )
-def mark_conversation_read(
+async def mark_conversation_read(
     conversation_id: int,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -309,6 +308,6 @@ def mark_conversation_read(
             "reader_id": current_user.id,
         },
     )
-    asyncio.run(manager.send_personal_message(read_payload, sender_id))
+    await manager.send_personal_message(read_payload, sender_id)
 
     return None
