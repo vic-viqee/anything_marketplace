@@ -36,7 +36,7 @@ export function useWebSocket(
     if (!token || typeof window === 'undefined') return;
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    const wsUrl = API_URL.replace('http', 'ws') + '/api/v1/ws/chat?token=' + token;
+    const wsUrl = API_URL.replace('http', 'ws') + '/ws/chat?token=' + token;
 
     try {
       wsRef.current = new WebSocket(wsUrl);
