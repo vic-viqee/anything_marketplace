@@ -255,7 +255,7 @@ function ProfileContent() {
             <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center overflow-hidden">
               {user?.profile_image ? (
                 <img
-                  src={`${API_URL}/uploads/${user.profile_image}`}
+                  src={user.profile_image.startsWith('http') ? user.profile_image : `${API_URL}/uploads/${user.profile_image}`}
                   alt="Profile"
                   className="w-full h-full object-cover"
                 />

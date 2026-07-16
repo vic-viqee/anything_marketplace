@@ -94,7 +94,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
             {profile.profile_image ? (
               <img
-                src={`${process.env.NEXT_PUBLIC_API_URL}/uploads/${profile.profile_image}`}
+                src={profile.profile_image.startsWith('http') ? profile.profile_image : `${process.env.NEXT_PUBLIC_API_URL}/uploads/${profile.profile_image}`}
                 alt={profile.username || 'User'}
                 className="w-full h-full object-cover"
               />

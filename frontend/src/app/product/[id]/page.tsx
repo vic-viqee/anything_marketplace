@@ -294,7 +294,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                   {product.seller.profile_image ? (
                     <img
-                      src={`${process.env.NEXT_PUBLIC_API_URL}/uploads/${product.seller.profile_image}`}
+                      src={product.seller.profile_image.startsWith('http') ? product.seller.profile_image : `${process.env.NEXT_PUBLIC_API_URL}/uploads/${product.seller.profile_image}`}
                       alt={product.seller.username || 'Seller'}
                       className="w-full h-full object-cover"
                     />

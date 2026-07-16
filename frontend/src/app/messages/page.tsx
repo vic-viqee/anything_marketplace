@@ -254,7 +254,7 @@ function MessagesContent() {
                 <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                   {conv.other_profile_image ? (
                     <img
-                      src={`${process.env.NEXT_PUBLIC_API_URL}/uploads/${conv.other_profile_image}`}
+                      src={conv.other_profile_image.startsWith('http') ? conv.other_profile_image : `${process.env.NEXT_PUBLIC_API_URL}/uploads/${conv.other_profile_image}`}
                       alt=""
                       className="w-full h-full object-cover"
                     />
