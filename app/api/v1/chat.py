@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
 from datetime import datetime, timezone
+import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -10,7 +10,6 @@ from app.models.models import (
     Product,
     Conversation,
     Message,
-    ProductStatus,
     NotificationType,
 )
 from app.schemas.schemas import (
@@ -22,6 +21,8 @@ from app.schemas.schemas import (
 from app.services.websocket_manager import manager, create_message_payload
 from app.api.v1.notifications import create_notification
 from bleach import clean
+
+logger = logging.getLogger("chat.routes")
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
@@ -243,6 +244,13 @@ async def send_message(
             "created_at": message.created_at.isoformat(),
         },
     )
+    logger.debug(
+        "send_message sender=%s recipient=%s message_id=%s payload=%s",
+        current_user.id,
+        recipient_id,
+        message.id,
+        payload,
+    )
     await manager.send_personal_message(payload, recipient_id)
 
     create_notification(
@@ -307,6 +315,13 @@ async def mark_conversation_read(
             "conversation_id": conversation_id,
             "reader_id": current_user.id,
         },
+    )
+    logger.debug(
+        "mark_conversation_read reader=%s sender=%s conversation=%s payload=%s",
+        current_user.id,
+        sender_id,
+        conversation_id,
+        read_payload,
     )
     await manager.send_personal_message(read_payload, sender_id)
 

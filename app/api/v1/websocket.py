@@ -9,11 +9,14 @@ from fastapi import (
 from sqlalchemy.orm import Session
 from typing import Optional
 import json
+import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.models.models import User, Conversation, Message
 from app.services.websocket_manager import manager, create_message_payload
+
+logger = logging.getLogger("chat.ws")
 
 router = APIRouter(tags=["websocket"])
 
@@ -55,6 +58,7 @@ async def websocket_endpoint(websocket: WebSocket):
         db.close()
 
     await manager.connect(websocket, user_id)
+    logger.debug("ws connected user_id=%s active=%s", user_id, manager.active_connections_summary())
 
     try:
         while True:
@@ -71,4 +75,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 pass
 
     except WebSocketDisconnect:
+        manager.disconnect(websocket, user_id)
+        logger.debug("ws disconnected user_id=%s active=%s", user_id, manager.active_connections_summary())
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.debug("ws unexpected error user_id=%s error=%s", user_id, exc)
         manager.disconnect(websocket, user_id)

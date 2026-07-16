@@ -1,11 +1,20 @@
 from typing import Dict, Set
 from fastapi import WebSocket
 import json
+import logging
+
+
+logger = logging.getLogger("chat.manager")
 
 
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[int, Set[WebSocket]] = {}
+
+    def active_connections_summary(self) -> str:
+        return ", ".join(
+            f"{uid}:{len(conns)}" for uid, conns in self.active_connections.items()
+        )
 
     async def connect(self, websocket: WebSocket, user_id: int):
         await websocket.accept()
@@ -29,6 +38,15 @@ class ConnectionManager:
                     disconnected.add(connection)
             for conn in disconnected:
                 self.disconnect(conn, user_id)
+            logger.debug(
+                "send_personal_message user_id=%s recipients=%s failed=%s payload=%s",
+                user_id,
+                len(self.active_connections.get(user_id, set())),
+                len(disconnected),
+                message,
+            )
+        else:
+            logger.debug("send_personal_message skipped user_id=%s payload=%s", user_id, message)
 
     async def broadcast_message(self, message: str, exclude_user: int = None):
         for user_id, connections in self.active_connections.items():

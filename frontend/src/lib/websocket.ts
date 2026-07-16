@@ -42,6 +42,7 @@ export function useWebSocket(
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
+        console.debug('[ws] open', wsUrl);
         setConnected(true);
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
@@ -52,14 +53,16 @@ export function useWebSocket(
       wsRef.current.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data) as WebSocketMessage;
+          console.debug('[ws] message', message);
           setLastMessage(message);
           onMessageRef.current?.(message);
-        } catch {
-          // Ignore parse errors
+        } catch (error) {
+          console.debug('[ws] parse error', error, event.data);
         }
       };
 
-      wsRef.current.onclose = () => {
+      wsRef.current.onclose = (event) => {
+        console.debug('[ws] close', event.code, event.reason);
         setConnected(false);
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
@@ -69,11 +72,12 @@ export function useWebSocket(
         }, 3000);
       };
 
-      wsRef.current.onerror = () => {
+      wsRef.current.onerror = (event) => {
+        console.debug('[ws] error', event);
         wsRef.current?.close();
       };
-    } catch {
-      // Ignore connection errors
+    } catch (error) {
+      console.debug('[ws] connect error', error);
     }
   }, [token]);
 
